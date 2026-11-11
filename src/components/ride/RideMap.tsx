@@ -32,6 +32,12 @@ interface Props {
   pickStart?: LngLat | undefined;
   onTripEnd?: () => void;
   onPickupClick?: () => void;
+  /** Label above the pickup pin (defaults to "Pickup"). */
+  pickupLabel?: string | undefined;
+  /** Online drivers to show in "idle" mode, at their real positions. */
+  drivers?: { id: string; at: LngLat; kind: "bus" | "car" }[] | undefined;
+  /** Where the assigned driver is coming from in "arriving" mode. */
+  driverFrom?: LngLat | null | undefined;
   /** "pick" mode: the coordinate under the centre pin after the map stops moving. */
   onCenter?: ((at: LngLat) => void) | undefined;
 }
@@ -216,24 +222,9 @@ function PickupPin() {
   );
 }
 
-interface Traffic {
-  path: LngLat[];
-  kind: "bus" | "car";
-  ms: number;
-  delay: number;
-}
-
 const toLatLng = (p: LngLat) => ({ lat: p[1], lng: p[0] });
 /** Metres per screen pixel at a zoom level (Web Mercator). */
 const mPerPx = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
-// Fixed spread of cruising vehicles around the pickup, so repeat visits reuse cached routes.
-const TRAFFIC = [
-  [420, 15, 760, 200],
-  [600, 95, 520, 280],
-  [380, 170, 820, 330],
-  [700, 250, 450, 60],
-] as const;
-
 export function RideMap({
   mode,
   pickup,
@@ -245,6 +236,9 @@ export function RideMap({
   pickStart,
   onTripEnd,
   onPickupClick,
+  pickupLabel,
+  drivers = [],
+  driverFrom,
   onCenter,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
@@ -255,7 +249,8 @@ export function RideMap({
   const [rootH, setRootH] = useState(800);
   const [trip, setTrip] = useState<Route | null>(null);
   const [approach, setApproach] = useState<Route | null>(null);
-  const [traffic, setTraffic] = useState<Traffic[]>([]);
+  const driverFromRef = useRef(driverFrom);
+  driverFromRef.current = driverFrom;
   const lines = useRef<{ casing: google.maps.Polyline; route: google.maps.Polyline; approach: google.maps.Polyline } | null>(null);
   const probe = useRef<google.maps.OverlayView | null>(null);
   const centerRef = useRef(onCenter);
@@ -340,39 +335,13 @@ export function RideMap({
   useEffect(() => {
     let live = true;
     if (mode !== "arriving" && mode !== "here") return;
-    // The assigned driver starts roughly a kilometre away, on the road network.
-    const start = offsetPoint(lngLat(pickup), 900, 40);
+    // From the driver's real position when known, otherwise about a kilometre out on the road network.
+    const start = driverFromRef.current ?? offsetPoint(lngLat(pickup), 900, 40);
     void getRoute(start, lngLat(pickup)).then((r) => live && setApproach(r));
     return () => {
       live = false;
     };
   }, [mode === "arriving" || mode === "here", pickup.lng, pickup.lat]);
-
-  /* Buses and cars cruising real roads around the pickup while browsing. */
-  useEffect(() => {
-    if (mode !== "idle") {
-      setTraffic([]);
-      return;
-    }
-    let live = true;
-    const origin = lngLat(pickup);
-    const trips = TRAFFIC.map(([d1, a1, d2, a2], i) =>
-      getRoute(offsetPoint(origin, d1, a1), offsetPoint(origin, d2, a2)).then((r) => ({
-        r,
-        kind: (i % 2 === 0 ? "bus" : "car") as "bus" | "car",
-        delay: i * 400,
-      })),
-    );
-    void Promise.all(trips).then((all) => {
-      if (!live) return;
-      setTraffic(
-        all.filter((x) => x.r.real && x.r.coords.length > 2).map((x) => ({ path: x.r.coords, kind: x.kind, ms: Math.max(9000, x.r.distance * 70), delay: x.delay })),
-      );
-    });
-    return () => {
-      live = false;
-    };
-  }, [mode, pickup.lng, pickup.lat]);
 
   /* Push route lines into the map. */
   useEffect(() => {
@@ -459,7 +428,7 @@ export function RideMap({
               </MapMarker>
               <MapMarker at={pickupAt} anchor="bottom" offset={[0, -48]}>
                 <Label
-                  title={mode === "idle" ? "Pickup" : "Pickup location"}
+                  title={pickupLabel ?? (mode === "idle" ? "Pickup" : "Pickup location")}
                   value={pickup.short}
                   onClick={onPickupClick}
                   chevron={mode === "idle"}
@@ -469,7 +438,9 @@ export function RideMap({
           )}
 
           {mode === "idle" &&
-            traffic.map((t, i) => <MovingVehicle key={`${pickup.id}-${i}`} path={t.path} kind={t.kind} durationMs={t.ms} delayMs={t.delay} loop />)}
+            drivers.map((d) => (
+              <MovingVehicle key={`${d.id}-${d.at[0]}-${d.at[1]}`} path={[d.at, offsetPoint(d.at, 2, 90)]} kind={d.kind} durationMs={400} />
+            ))}
 
           {mode === "arriving" && approach && driverAt && (
             <>
