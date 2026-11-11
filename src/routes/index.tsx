@@ -1,23 +1,27 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Logo } from "@/components/move/Logo";
+import { getState } from "@/lib/move-store";
+import { pageHead } from "@/lib/head";
 
-// The home route ships no og:image, so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => pageHead("Pay less. Ride more.", "Move Naija — cheap shared rides around Port Harcourt."),
+  component: Splash,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function Splash() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const { user } = getState();
+      navigate({ to: user.name && user.role ? "/home" : "/welcome", replace: true });
+    }, 1700);
+    return () => clearTimeout(t);
+  }, [navigate]);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="absolute inset-0 flex items-center justify-center bg-background">
+      <Logo className="w-28 animate-logo-in" />
     </div>
   );
 }
