@@ -14,11 +14,12 @@ interface Props {
   mode: MapMode;
   pickupLabel: string;
   dropoffLabel?: string;
-  /** Where the focus point sits vertically, as a fraction of the map's height. */
-  focusY: number;
+  /** Height of whatever covers the bottom of the map (sheet), in px. */
+  sheetHeight: number;
+  /** Where the focus point sits within the visible area above the sheet (0–1). */
+  focusRatio?: number;
   onTripEnd?: () => void;
   onPickupClick?: () => void;
-  locateBottom?: number;
 }
 
 function Label({ title, value, onClick, chevron = true }: { title: string; value: string; onClick?: () => void; chevron?: boolean }) {
@@ -51,11 +52,12 @@ function PickupPin() {
   );
 }
 
-export function RideMap({ mode, pickupLabel, dropoffLabel, focusY, onTripEnd, onPickupClick, locateBottom = 16 }: Props) {
+export function RideMap({ mode, pickupLabel, dropoffLabel, sheetHeight, focusRatio = 0.55, onTripEnd, onPickupClick }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 390, h: 800 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -75,7 +77,7 @@ export function RideMap({ mode, pickupLabel, dropoffLabel, focusY, onTripEnd, on
         : PICKUP;
 
   const tx = size.w / 2 - focus.x * K + pan.x;
-  const ty = size.h * focusY - focus.y * K + pan.y;
+  const ty = Math.max(90, (size.h - sheetHeight) * focusRatio) - focus.y * K + pan.y;
   const at = (p: { x: number; y: number }) => ({ left: tx + p.x * K, top: ty + p.y * K });
 
   const marker = (p: { x: number; y: number }, node: ReactNode, cls = "") => (
@@ -91,13 +93,23 @@ export function RideMap({ mode, pickupLabel, dropoffLabel, focusY, onTripEnd, on
       onPointerDown={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
         drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        setDragging(true);
       }}
-      onPointerMove={(e) => drag.current && setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y })}
-      onPointerUp={() => (drag.current = null)}
-      onPointerLeave={() => (drag.current = null)}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (d) setPan({ x: e.clientX - d.x, y: e.clientY - d.y });
+      }}
+      onPointerUp={() => {
+        drag.current = null;
+        setDragging(false);
+      }}
+      onPointerLeave={() => {
+        drag.current = null;
+        setDragging(false);
+      }}
     >
       <div
-        className={cn("absolute left-0 top-0 origin-top-left", !drag.current && "transition-transform duration-700 ease-out")}
+        className={cn("absolute left-0 top-0 origin-top-left", !dragging && "transition-transform duration-700 ease-out")}
         style={{ width: WORLD.w, height: WORLD.h, transform: `translate(${tx}px, ${ty}px) scale(${K})` }}
       >
         <img src={mapImg} alt="" draggable={false} className="absolute inset-0 size-full select-none" width={WORLD.w} height={WORLD.h} />
@@ -188,7 +200,7 @@ export function RideMap({ mode, pickupLabel, dropoffLabel, focusY, onTripEnd, on
         aria-label="Recenter map"
         onClick={() => setPan({ x: 0, y: 0 })}
         className="absolute right-4 z-10 flex size-10 items-center justify-center rounded-full bg-card shadow-float"
-        style={{ bottom: locateBottom }}
+        style={{ bottom: sheetHeight + 12 }}
       >
         <Navigation className="size-4" />
       </button>
