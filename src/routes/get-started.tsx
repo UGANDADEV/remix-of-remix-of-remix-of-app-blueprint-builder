@@ -1,33 +1,34 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
 import { AppleIcon, GoogleIcon } from "@/components/move/BrandIcons";
 import { Screen } from "@/components/move/Screen";
-import { updateUser } from "@/lib/move-store";
+import { authErrorMessage, signInWith } from "@/lib/session";
 import { pageHead } from "@/lib/head";
-import { isValidPhone } from "@/lib/validation";
 
 export const Route = createFileRoute("/get-started")({
-  head: () => pageHead("Get started", "Sign in with your phone, email, Google or Apple to start riding."),
+  head: () => pageHead("Get started", "Sign in with your email, Google or Apple to start riding."),
   component: GetStarted,
 });
 
 function GetStarted() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState<null | "google" | "apple">(null);
   const [error, setError] = useState("");
 
-  const continuePhone = () => {
-    if (!isValidPhone(phone)) {
-      setError("Enter a valid phone number, e.g. 0803 123 4567");
-      return;
+  const social = async (which: "google" | "apple") => {
+    setBusy(which);
+    setError("");
+    try {
+      await signInWith(which);
+    } catch (e) {
+      console.error(e);
+      setError(authErrorMessage(e));
+    } finally {
+      setBusy(null);
     }
-    updateUser({ phone });
-    navigate({ to: "/verify", search: { via: "phone" } });
   };
-
-  const social = () => navigate({ to: "/name" });
 
   return (
     <Screen>
@@ -35,43 +36,17 @@ function GetStarted() {
         <h1 className="mt-16 text-[22px] font-bold">Let's get you started</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">Pick a way in. We'll get you moving in seconds.</p>
 
-        <form
-          className="mt-9"
-          onSubmit={(e) => {
-            e.preventDefault();
-            continuePhone();
-          }}
-        >
-          <input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value);
-              setError("");
-            }}
-            placeholder="Enter your phone number"
-            className="h-12 w-full rounded-full border border-input bg-card px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
-          />
-          {error && <p className="mt-2 px-2 text-xs text-destructive">{error}</p>}
-          <AppButton type="submit" className="mt-4">
-            Continue
+        <div className="mt-9 space-y-3">
+          <AppButton onClick={() => navigate({ to: "/email" })}>
+            <Mail className="size-[18px]" /> Continue with Email
           </AppButton>
-        </form>
-
-        <p className="my-4 text-center text-sm text-muted-foreground">OR</p>
-
-        <div className="space-y-3">
-          <AppButton variant="outline" size="md" onClick={() => navigate({ to: "/email" })}>
-            <Mail className="size-[18px] fill-foreground text-card" /> Connect with Email
+          <AppButton variant="outline" size="md" disabled={!!busy} onClick={() => social("google")}>
+            {busy === "google" ? <Loader2 className="size-[18px] animate-spin" /> : <GoogleIcon />} Continue with Google
           </AppButton>
-          <AppButton variant="outline" size="md" onClick={social}>
-            <GoogleIcon /> Connect with Google
+          <AppButton variant="outline" size="md" disabled={!!busy} onClick={() => social("apple")}>
+            {busy === "apple" ? <Loader2 className="size-[18px] animate-spin" /> : <AppleIcon />} Continue with Apple
           </AppButton>
-          <AppButton variant="outline" size="md" onClick={social}>
-            <AppleIcon /> Connect with Apple
-          </AppButton>
+          {error && <p className="px-2 text-center text-xs text-destructive">{error}</p>}
         </div>
 
         <p className="mt-auto pb-safe pt-6 text-center text-[11px] leading-snug text-muted-foreground">
