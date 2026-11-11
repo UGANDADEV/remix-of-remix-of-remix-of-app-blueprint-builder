@@ -354,3 +354,12 @@
 @utility animate-pulse-ring {
   animation: pulse-ring 1.8s ease-out infinite;
 }
+
+/* Mapbox controls sit below the phone status bar */
+.move-map .mapboxgl-ctrl-top-left,
+.move-map .mapboxgl-ctrl-top-right {
+  top: 44px;
+}
+.move-map .mapboxgl-ctrl-attrib.mapboxgl-compact {
+  margin: 6px 8px 0 0;
+}

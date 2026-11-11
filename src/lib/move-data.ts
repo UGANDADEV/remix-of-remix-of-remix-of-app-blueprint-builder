@@ -24,51 +24,43 @@ export const VEHICLES: Vehicle[] = [
 
 export const vehicleById = (id: VehicleId) => VEHICLES.find((v) => v.id === id) ?? VEHICLES[0]!;
 
-export interface Place {
-  id: string;
-  short: string;
-  name: string;
-  area: string;
-}
+export type { Place } from "./geo";
+import type { Place } from "./geo";
 
+/** Common pickup points in Gulu City, Northern Uganda. */
 export const PICKUPS: Place[] = [
-  { id: "garrison", short: "Garrison", name: "Garrison Bus Stop", area: "Port Harcourt" },
-  { id: "mile1", short: "Mile 1", name: "Mile 1 Bus Stop", area: "Diobu, PH" },
-  { id: "rumuola", short: "Rumuola", name: "Rumuola Bus Stop", area: "Rumuola, PH" },
+  { id: "gulu-market", short: "Gulu Main Market", name: "Gulu Main Market", area: "Jomo Kenyatta Road, Gulu", lng: 32.3007, lat: 2.77249, kind: "poi" },
+  { id: "gulu-buspark", short: "Gulu Bus Park", name: "Gulu Bus Park", area: "Queen's Lane, Gulu", lng: 32.29919, lat: 2.77096, kind: "poi" },
+  { id: "gulu-referral", short: "Gulu Referral Hospital", name: "Gulu Regional Referral Hospital", area: "Awere Road, Gulu", lng: 32.29857, lat: 2.77734, kind: "poi" },
 ];
 
+/** Popular destinations around Gulu, shown before the passenger types. */
 export const PLACES: Place[] = [
-  { id: "slaughter", short: "Slaughter", name: "Slaughter Bus Stop", area: "Trans-Amadi, PH" },
-  { id: "artillery", short: "First Artillery", name: "First Artillery Bus Stop", area: "Rumuogba, PH" },
-  { id: "shell", short: "Shell R/A", name: "Shell R/A Bus Stop", area: "Rumuobiakani, PH" },
-  { id: "elelenwo", short: "Elelenwo", name: "Elelenwo Bus Stop", area: "Obio/Akpor, PH" },
-  { id: "rumuokoro", short: "Rumuokoro", name: "Rumuokoro Junction", area: "Obio/Akpor, PH" },
-  { id: "mile3", short: "Mile 3", name: "Mile 3 Park", area: "Diobu, PH" },
-  { id: "waterlines", short: "Waterlines", name: "Waterlines Bus Stop", area: "Aba Road, PH" },
-  { id: "agip", short: "Agip", name: "Agip Junction", area: "Ikwerre Road, PH" },
-  { id: "choba", short: "Choba", name: "Choba Bus Stop", area: "Uniport, PH" },
-  { id: "eleme", short: "Eleme Junction", name: "Eleme Junction", area: "Eleme, PH" },
-  { id: "oilmill", short: "Oil Mill", name: "Oil Mill Bus Stop", area: "Rumuokwurusi, PH" },
-  { id: "rumuomasi", short: "Rumuomasi", name: "Rumuomasi Bus Stop", area: "Rumuomasi, PH" },
+  { id: "gulu-university", short: "Gulu University", name: "Gulu University", area: "Laroo-Pece, Gulu", lng: 32.3169, lat: 2.78898, kind: "poi" },
+  { id: "lacor-hospital", short: "Lacor Hospital", name: "St. Mary's Hospital Lacor", area: "Gulu - Nimule Road, Lacor", lng: 32.2149, lat: 2.77458, kind: "poi" },
+  { id: "pece-stadium", short: "Pece Stadium", name: "Pece War Memorial Stadium", area: "Lumumba Avenue, Gulu", lng: 32.30905, lat: 2.7702, kind: "poi" },
+  { id: "layibi", short: "Layibi", name: "Layibi", area: "Layibi Division, Gulu", lng: 32.29671, lat: 2.74065, kind: "area" },
+  { id: "unyama", short: "Unyama", name: "Unyama", area: "Gulu", lng: 32.33814, lat: 2.81699, kind: "area" },
+  { id: "lacor", short: "Lacor", name: "Lacor", area: "Gulu", lng: 32.24775, lat: 2.76767, kind: "area" },
+  ...PICKUPS,
 ];
-
-export const placeById = (id: string) =>
-  [...PLACES, ...PICKUPS].find((p) => p.id === id) ?? PLACES[0]!;
 
 export interface NearbyDeal {
   vehicle: VehicleId;
   label: string;
   price: number;
   left: number;
-  placeId: string;
+  place: Place;
   minutes: number;
 }
 
+const byId = (id: string) => PLACES.find((p) => p.id === id) ?? PLACES[0]!;
+
 export const NEARBY: NearbyDeal[] = [
-  { vehicle: "bus", label: "Bus", price: 300, left: 7, placeId: "slaughter", minutes: 4 },
-  { vehicle: "minibus", label: "Mini Bus", price: 400, left: 5, placeId: "artillery", minutes: 5 },
-  { vehicle: "taxi", label: "Taxi", price: 750, left: 2, placeId: "shell", minutes: 7 },
-  { vehicle: "bus", label: "Bus", price: 450, left: 2, placeId: "elelenwo", minutes: 9 },
+  { vehicle: "bus", label: "Bus", price: 300, left: 7, place: byId("gulu-university"), minutes: 4 },
+  { vehicle: "minibus", label: "Mini Bus", price: 400, left: 5, place: byId("lacor-hospital"), minutes: 5 },
+  { vehicle: "taxi", label: "Taxi", price: 750, left: 2, place: byId("pece-stadium"), minutes: 7 },
+  { vehicle: "bus", label: "Bus", price: 450, left: 2, place: byId("layibi"), minutes: 9 },
 ];
 
 export interface Driver {
@@ -144,12 +136,4 @@ export function offerLabel(offer: number, myPrice: number) {
   if (diff === 0) return { tone: "match" as const, text: "Matches your offer" };
   if (diff > 0) return { tone: "above" as const, text: `${naira(diff)} above your offer` };
   return { tone: "match" as const, text: `${naira(-diff)} below your offer` };
-}
-
-export function searchPlaces(q: string) {
-  const s = q.trim().toLowerCase();
-  if (!s) return [];
-  return PLACES.filter(
-    (p) => p.name.toLowerCase().includes(s) || p.area.toLowerCase().includes(s),
-  );
 }
