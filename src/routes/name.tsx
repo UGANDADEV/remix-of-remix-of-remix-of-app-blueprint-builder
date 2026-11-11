@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
 import { StepLayout } from "@/components/move/Screen";
-import { getState, updateUser } from "@/lib/move-store";
+import { getState } from "@/lib/move-store";
+import { saveProfile } from "@/lib/session";
 import { pageHead } from "@/lib/head";
 import { isValidName } from "@/lib/validation";
 
@@ -18,7 +19,7 @@ function NameStep() {
 
   const submit = () => {
     if (!ok) return;
-    updateUser({ name: name.trim() });
+    void saveProfile({ name: name.trim() });
     navigate({ to: "/role" });
   };
 

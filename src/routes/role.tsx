@@ -3,7 +3,8 @@ import { CarFront, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
 import { StepLayout } from "@/components/move/Screen";
-import { getState, updateUser, type Role } from "@/lib/move-store";
+import { getState, type Role } from "@/lib/move-store";
+import { saveProfile } from "@/lib/session";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ function RoleStep() {
           <AppButton
             disabled={!role}
             onClick={() => {
-              updateUser({ role });
+              void saveProfile({ role });
               navigate({ to: "/profile-photo" });
             }}
           >
