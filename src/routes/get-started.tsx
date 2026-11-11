@@ -6,6 +6,7 @@ import { AppleIcon, GoogleIcon } from "@/components/move/BrandIcons";
 import { Screen } from "@/components/move/Screen";
 import { updateUser } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
+import { isValidPhone } from "@/lib/validation";
 
 export const Route = createFileRoute("/get-started")({
   head: () => pageHead("Get started", "Sign in with your phone, email, Google or Apple to start riding."),
@@ -18,8 +19,7 @@ function GetStarted() {
   const [error, setError] = useState("");
 
   const continuePhone = () => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10) {
+    if (!isValidPhone(phone)) {
       setError("Enter a valid phone number, e.g. 0803 123 4567");
       return;
     }

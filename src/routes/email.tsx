@@ -4,13 +4,12 @@ import { AppButton } from "@/components/move/AppButton";
 import { StepLayout } from "@/components/move/Screen";
 import { getState, updateUser } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
+import { isValidEmail } from "@/lib/validation";
 
 export const Route = createFileRoute("/email")({
   head: () => pageHead("Enter your email", "We'll send you a verification code in seconds."),
   component: EmailStep,
 });
-
-export const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 
 function EmailStep() {
   const navigate = useNavigate();
