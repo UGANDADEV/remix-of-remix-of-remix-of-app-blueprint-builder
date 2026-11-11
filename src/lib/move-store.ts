@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { PICKUPS, type VehicleId } from "./move-data";
+import { PICKUPS, isVehicleId, type VehicleId } from "./move-data";
 import type { LngLat, Place } from "./geo";
 
 export type Role = "passenger" | "driver";
@@ -57,7 +57,9 @@ export interface Ride {
   /** Real road distance (m) and driving time (s) once the route is known. */
   trip: { distance: number; duration: number } | null;
   vehicle: VehicleId;
+  /** Passengers travelling (fare is for the whole trip, not per seat). */
   seats: number;
+  /** Fare in UGX the passenger names for the whole trip. */
   price: number;
   recommended: number;
   payment: "Cash" | "Card" | "Transfer";
@@ -84,10 +86,10 @@ export const emptyRide = (pickup: Place = PICKUPS[0]!): Ride => ({
   pickup,
   dropoff: null,
   trip: null,
-  vehicle: "bus",
+  vehicle: "boda",
   seats: 1,
-  price: 300,
-  recommended: 300,
+  price: 1000,
+  recommended: 1000,
   payment: "Cash",
   driverId: null,
   driver: null,
@@ -116,7 +118,7 @@ function load() {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<State>;
       state = { ...initial, ...saved, user: { ...emptyUser, ...saved.user }, ride: { ...emptyRide(), ...saved.ride } };
-      if (typeof state.ride.pickup?.lng !== "number") state = { ...state, ride: emptyRide() };
+      if (typeof state.ride.pickup?.lng !== "number" || !isVehicleId(state.ride.vehicle)) state = { ...state, ride: emptyRide() };
     }
   } catch {
     /* ignore corrupt storage */
