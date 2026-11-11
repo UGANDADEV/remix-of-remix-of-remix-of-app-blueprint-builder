@@ -2,15 +2,15 @@ import { Link } from "@tanstack/react-router";
 import { CarFront, CircleUserRound, House } from "lucide-react";
 
 const ITEMS = [
-  { to: "/home", label: "Home", Icon: House },
-  { to: "/rides", label: "Rides", Icon: CarFront },
-  { to: "/me", label: "Me", Icon: CircleUserRound },
+  { to: "/home", label: "Home", Icon: House, fill: true },
+  { to: "/rides", label: "Rides", Icon: CarFront, fill: true },
+  { to: "/me", label: "Me", Icon: CircleUserRound, fill: false },
 ] as const;
 
 export function BottomNav() {
   return (
     <nav className="relative z-20 grid grid-cols-3 border-t border-border bg-card pb-safe pt-2">
-      {ITEMS.map(({ to, label, Icon }) => (
+      {ITEMS.map(({ to, label, Icon, fill }) => (
         <Link
           key={to}
           to={to}
@@ -19,7 +19,7 @@ export function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon className={isActive ? "size-5 fill-primary/90 text-primary" : "size-5"} strokeWidth={isActive ? 2.2 : 1.6} />
+              <Icon className={isActive ? (fill ? "size-5 fill-primary/90 text-primary" : "size-5 text-primary") : "size-5"} strokeWidth={isActive ? 2.2 : 1.6} />
               {label}
             </>
           )}

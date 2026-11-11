@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- The app is a phone-first prototype: every screen renders inside `PhoneShell` (root layout), and overlays/sheets are absolutely positioned inside the frame instead of Radix portals, so they stay within the device on desktop.
+- App state (user profile, current ride stage, ride history) lives in the small `useSyncExternalStore` store in `src/lib/move-store.ts`, persisted to localStorage; there is no backend yet, so keep selectors returning existing references to avoid render loops.
+- The ride flow on `/home` is driven by `ride.stage` (idle → choose → finding → arriving → here → started → tracking → arrived), not separate routes, so the map and sheet stay mounted between steps.
+- Fares, vehicles, bus stops and drivers are static data in `src/lib/move-data.ts`; fare math (`tripTotal`, `offerLabel`) is covered by `src/test/fares.test.ts`.
