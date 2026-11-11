@@ -10,9 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AllSetRouteImport } from './routes/all-set'
 import { Route as EmailRouteImport } from './routes/email'
+import { Route as EnableLocationRouteImport } from './routes/enable-location'
+import { Route as EnableNotificationsRouteImport } from './routes/enable-notifications'
 import { Route as GetStartedRouteImport } from './routes/get-started'
 import { Route as NameRouteImport } from './routes/name'
+import { Route as ProfilePhotoRouteImport } from './routes/profile-photo'
 import { Route as RoleRouteImport } from './routes/role'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
@@ -22,9 +26,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AllSetRoute = AllSetRouteImport.update({
+  id: '/all-set',
+  path: '/all-set',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailRoute = EmailRouteImport.update({
   id: '/email',
   path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnableLocationRoute = EnableLocationRouteImport.update({
+  id: '/enable-location',
+  path: '/enable-location',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnableNotificationsRoute = EnableNotificationsRouteImport.update({
+  id: '/enable-notifications',
+  path: '/enable-notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GetStartedRoute = GetStartedRouteImport.update({
@@ -35,6 +54,11 @@ const GetStartedRoute = GetStartedRouteImport.update({
 const NameRoute = NameRouteImport.update({
   id: '/name',
   path: '/name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfilePhotoRoute = ProfilePhotoRouteImport.update({
+  id: '/profile-photo',
+  path: '/profile-photo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoleRoute = RoleRouteImport.update({
@@ -55,18 +79,26 @@ const WelcomeRoute = WelcomeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
   '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
   '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
   '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
   '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
@@ -74,9 +106,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
   '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
   '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
@@ -84,16 +120,40 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/email' | '/get-started' | '/name' | '/role' | '/verify' | '/welcome'
+    | '/'
+    | '/all-set'
+    | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
+    | '/get-started'
+    | '/name'
+    | '/profile-photo'
+    | '/role'
+    | '/verify'
+    | '/welcome'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/email' | '/get-started' | '/name' | '/role' | '/verify' | '/welcome'
+    | '/'
+    | '/all-set'
+    | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
+    | '/get-started'
+    | '/name'
+    | '/profile-photo'
+    | '/role'
+    | '/verify'
+    | '/welcome'
   id:
     | '__root__'
     | '/'
+    | '/all-set'
     | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
     | '/get-started'
     | '/name'
+    | '/profile-photo'
     | '/role'
     | '/verify'
     | '/welcome'
@@ -101,9 +161,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AllSetRoute: typeof AllSetRoute
   EmailRoute: typeof EmailRoute
+  EnableLocationRoute: typeof EnableLocationRoute
+  EnableNotificationsRoute: typeof EnableNotificationsRoute
   GetStartedRoute: typeof GetStartedRoute
   NameRoute: typeof NameRoute
+  ProfilePhotoRoute: typeof ProfilePhotoRoute
   RoleRoute: typeof RoleRoute
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
@@ -118,11 +182,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/all-set': {
+      id: '/all-set'
+      path: '/all-set'
+      fullPath: '/all-set'
+      preLoaderRoute: typeof AllSetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/email': {
       id: '/email'
       path: '/email'
       fullPath: '/email'
       preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enable-location': {
+      id: '/enable-location'
+      path: '/enable-location'
+      fullPath: '/enable-location'
+      preLoaderRoute: typeof EnableLocationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enable-notifications': {
+      id: '/enable-notifications'
+      path: '/enable-notifications'
+      fullPath: '/enable-notifications'
+      preLoaderRoute: typeof EnableNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/get-started': {
@@ -137,6 +222,13 @@ declare module '@tanstack/react-router' {
       path: '/name'
       fullPath: '/name'
       preLoaderRoute: typeof NameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile-photo': {
+      id: '/profile-photo'
+      path: '/profile-photo'
+      fullPath: '/profile-photo'
+      preLoaderRoute: typeof ProfilePhotoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/role': {
@@ -165,9 +257,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AllSetRoute: AllSetRoute,
   EmailRoute: EmailRoute,
+  EnableLocationRoute: EnableLocationRoute,
+  EnableNotificationsRoute: EnableNotificationsRoute,
   GetStartedRoute: GetStartedRoute,
   NameRoute: NameRoute,
+  ProfilePhotoRoute: ProfilePhotoRoute,
   RoleRoute: RoleRoute,
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,

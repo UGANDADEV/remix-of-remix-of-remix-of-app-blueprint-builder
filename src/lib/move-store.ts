@@ -28,6 +28,7 @@ export interface Ride {
   vehicle: VehicleId;
   seats: number;
   price: number;
+  recommended: number;
   payment: "Cash" | "Card" | "Transfer";
   driverId: string | null;
   extraBags: boolean;
@@ -62,6 +63,7 @@ export const emptyRide = (pickupId = "garrison"): Ride => ({
   vehicle: "bus",
   seats: 1,
   price: 300,
+  recommended: 300,
   payment: "Cash",
   driverId: null,
   extraBags: false,
