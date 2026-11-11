@@ -9,12 +9,12 @@ import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/role")({
-  head: () => pageHead("Choose your role", "Ride around Naija as a passenger, or drive and earn."),
+  head: () => pageHead("Choose your role", "Ride around Gulu as a passenger, or drive and earn."),
   component: RoleStep,
 });
 
 const ROLES: { id: Role; title: string; text: string; Icon: typeof UsersRound }[] = [
-  { id: "passenger", title: "Passenger", text: "I'm here to ride and travel around Naija", Icon: UsersRound },
+  { id: "passenger", title: "Passenger", text: "I'm here to ride and travel around Gulu", Icon: UsersRound },
   { id: "driver", title: "Driver", text: "I'm here to drive and earn.", Icon: CarFront },
 ];
 
