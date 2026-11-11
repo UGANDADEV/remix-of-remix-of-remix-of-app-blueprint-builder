@@ -39,7 +39,7 @@ function EnableNotifications() {
               <p className="text-[13px] font-semibold">Your boda is here</p>
               <span className="text-[10px] text-muted-foreground">now</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">Okello is waiting at Gulu Main Market</p>
+            <p className="text-[11px] text-muted-foreground">Your driver is waiting at your pickup point</p>
           </div>
         </>
       }
