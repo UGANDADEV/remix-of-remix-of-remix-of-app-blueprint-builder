@@ -96,29 +96,5 @@ export function SheetHandle() {
   return <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-secondary" />;
 }
 
-export function Stepper({
-  onMinus,
-  onPlus,
-  minusDisabled,
-  plusDisabled,
-  size = "md",
-}: {
-  onMinus: () => void;
-  onPlus: () => void;
-  minusDisabled?: boolean;
-  plusDisabled?: boolean;
-  size?: "sm" | "md";
-}) {
-  const cls = cn(
-    "flex items-center justify-center rounded-full bg-card text-foreground shadow-[0_0_0_1px_var(--border)] transition-opacity disabled:opacity-40",
-    size === "md" ? "size-9" : "size-7",
-  );
-  return [
-    <button key="m" aria-label="Decrease" className={cls} onClick={onMinus} disabled={minusDisabled}>
-      −
-    </button>,
-    <button key="p" aria-label="Increase" className={cls} onClick={onPlus} disabled={plusDisabled}>
-      +
-    </button>,
-  ] as const;
-}
+export const roundBtn =
+  "flex size-9 items-center justify-center rounded-full bg-card text-lg leading-none text-foreground shadow-[0_0_0_1px_var(--border)] transition-opacity disabled:opacity-40";
