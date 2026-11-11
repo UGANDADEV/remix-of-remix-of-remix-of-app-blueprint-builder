@@ -17,6 +17,7 @@ import { PhoneShell } from "../components/move/PhoneShell";
 import { Toaster } from "../components/ui/sonner";
 import { getState } from "../lib/move-store";
 import { nextPath, startSession, useAuthStatus } from "../lib/session";
+import { registerNotifier } from "@/lib/notify";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -157,6 +158,7 @@ function AuthGate() {
 
   useEffect(() => {
     startSession();
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") registerNotifier();
   }, []);
 
   useEffect(() => {
