@@ -17,6 +17,7 @@ import { PhoneShell } from "../components/move/PhoneShell";
 import { Toaster } from "../components/ui/sonner";
 import { getState } from "../lib/move-store";
 import { nextPath, startSession, useAuthStatus } from "../lib/session";
+import { registerNotifier } from "@/lib/notify";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -91,9 +92,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "theme-color", content: "#f8f9f9" },
       { title: "Move Naija — Pay less. Ride more." },
-      { name: "description", content: "Book cheap shared bus, mini bus and taxi rides around Port Harcourt." },
+      { name: "description", content: "Book affordable boda boda, tuk tuk and car rides around Gulu, priced in Ugandan shillings." },
       { property: "og:title", content: "Move Naija — Pay less. Ride more." },
-      { property: "og:description", content: "Book cheap shared bus, mini bus and taxi rides around Port Harcourt." },
+      { property: "og:description", content: "Book affordable boda boda, tuk tuk and car rides around Gulu, priced in Ugandan shillings." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -157,6 +158,7 @@ function AuthGate() {
 
   useEffect(() => {
     startSession();
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") registerNotifier();
   }, []);
 
   useEffect(() => {

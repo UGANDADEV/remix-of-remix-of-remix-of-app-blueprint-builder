@@ -1,25 +1,55 @@
-import bus from "@/assets/vehicle-bus.png";
-import minibus from "@/assets/vehicle-minibus.png";
-import taxi from "@/assets/vehicle-taxi.png";
+import bodaTop from "@/assets/map-boda.png";
+import carTop from "@/assets/map-car.png";
+import tuktukTop from "@/assets/map-tuktuk.png";
+import boda from "@/assets/vehicle-boda.png";
+import car from "@/assets/vehicle-car.png";
+import tuktuk from "@/assets/vehicle-tuktuk.png";
 
-export type VehicleId = "bus" | "minibus" | "taxi";
+export type VehicleId = "boda" | "tuktuk" | "car";
 
 export interface Vehicle {
   id: VehicleId;
   name: string;
+  tagline: string;
   image: string;
+  /** Seen-from-above picture used on the map. */
+  mapIcon: string;
+  /** Map icon width in px. */
+  mapWidth: number;
+  /** Most passengers it carries. */
   seats: number;
-  eta: number;
-  pricePerSeat: number;
+  /** Fare = base + perKm × road km, never below minimum, rounded to UGX 500. */
+  base: number;
+  perKm: number;
+  minimum: number;
 }
 
 export const VEHICLES: Vehicle[] = [
-  { id: "bus", name: "Bus", image: bus, seats: 11, eta: 4, pricePerSeat: 300 },
-  { id: "minibus", name: "Mini Bus", image: minibus, seats: 8, eta: 4, pricePerSeat: 400 },
-  { id: "taxi", name: "Taxi", image: taxi, seats: 4, eta: 4, pricePerSeat: 600 },
+  { id: "boda", name: "Boda Boda", tagline: "Motorcycle · quickest", image: boda, mapIcon: bodaTop, mapWidth: 11, seats: 1, base: 1000, perKm: 500, minimum: 1000 },
+  { id: "tuktuk", name: "Tuk Tuk", tagline: "Up to 3 people", image: tuktuk, mapIcon: tuktukTop, mapWidth: 13, seats: 3, base: 1500, perKm: 700, minimum: 2000 },
+  { id: "car", name: "Car", tagline: "Comfort · up to 4", image: car, mapIcon: carTop, mapWidth: 17, seats: 4, base: 4000, perKm: 1500, minimum: 6000 },
 ];
 
-export const vehicleById = (id: VehicleId) => VEHICLES.find((v) => v.id === id) ?? VEHICLES[0]!;
+export const isVehicleId = (id: unknown): id is VehicleId => VEHICLES.some((v) => v.id === id);
+export const vehicleById = (id: VehicleId | string) => VEHICLES.find((v) => v.id === id) ?? VEHICLES[0]!;
+
+/** Fares move in steps of UGX 500 (the smallest note-and-coin step riders use). */
+export const FARE_STEP = 500;
+const roundFare = (n: number) => Math.max(FARE_STEP, Math.round(n / FARE_STEP) * FARE_STEP);
+
+/** Roads in Gulu are ~30% longer than a straight line; used until Google's real route arrives. */
+export const estimateRoadM = (straightM: number) => straightM * 1.3;
+
+/** Recommended fare for a whole trip (not per seat) over a road distance in metres. */
+export function recommendedFare(vehicle: VehicleId | string, roadM: number) {
+  const v = vehicleById(vehicle);
+  const km = Math.max(0, roadM) / 1000;
+  return Math.max(v.minimum, roundFare(v.base + v.perKm * km));
+}
+
+/** Lowest fare a passenger may name: 70% of the recommended fare, never below the vehicle's minimum. */
+export const lowestFare = (vehicle: VehicleId | string, recommended: number) =>
+  Math.max(vehicleById(vehicle).minimum, roundFare(recommended * 0.7));
 
 export type { Place } from "./geo";
 import type { Place } from "./geo";
@@ -42,15 +72,13 @@ export const PLACES: Place[] = [
   ...PICKUPS,
 ];
 
-export const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
-
-/** Total fare for a trip: the price named per seat multiplied by seats booked. */
-export const tripTotal = (pricePerSeat: number, seats: number) => pricePerSeat * Math.max(1, seats);
+/** Ugandan shillings, e.g. "UGX 3,500". */
+export const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString("en-US")}`;
 
 /** How an offer compares to the passenger's named price. */
 export function offerLabel(offer: number, myPrice: number) {
   const diff = offer - myPrice;
   if (diff === 0) return { tone: "match" as const, text: "Matches your offer" };
-  if (diff > 0) return { tone: "above" as const, text: `${naira(diff)} above your offer` };
-  return { tone: "match" as const, text: `${naira(-diff)} below your offer` };
+  if (diff > 0) return { tone: "above" as const, text: `${ugx(diff)} above your offer` };
+  return { tone: "match" as const, text: `${ugx(-diff)} below your offer` };
 }

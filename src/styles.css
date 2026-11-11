@@ -35,6 +35,7 @@
   --color-danger-soft: var(--danger-soft);
   --color-warning: var(--warning);
   --color-above: var(--above);
+  --color-locate: var(--locate);
   --color-disabled: var(--disabled);
   --color-disabled-foreground: var(--disabled-foreground);
   --color-ink: var(--ink);
@@ -89,6 +90,8 @@
   --danger-soft: oklch(0.955 0.025 20);
   --warning: oklch(0.7 0.15 75);
   --above: oklch(0.62 0.17 45);
+  /* "You are here" dot on the map */
+  --locate: oklch(0.6 0.17 250);
   --disabled: oklch(0.58 0 0);
   --disabled-foreground: oklch(0.93 0 0);
   --ink: oklch(0.2 0.005 260);

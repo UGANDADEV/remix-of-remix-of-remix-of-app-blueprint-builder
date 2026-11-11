@@ -1,20 +1,49 @@
-import { ChevronRight, Layers, Navigation, PersonStanding, UserRound } from "lucide-react";
+import { ChevronRight, Layers, Navigation, PersonStanding } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import busTop from "@/assets/map-bus.png";
-import carTop from "@/assets/map-car.png";
-import { lngLat, offsetPoint, pointAlong, type LngLat, type Place, type Route } from "@/lib/geo";
+import {
+  bearing,
+  distanceM,
+  lngLat,
+  nextStep,
+  offsetPoint,
+  remainingOn,
+  trimRoute,
+  alongRoute,
+  type LngLat,
+  type Place,
+  type Route,
+  type RouteStep,
+} from "@/lib/geo";
 import { loadGoogleMaps, onMapsAuthFailure } from "@/lib/google-maps-loader";
 import { getRoute } from "@/lib/maps";
+import { vehicleById, type VehicleId } from "@/lib/move-data";
 import { cn } from "@/lib/utils";
 
-export type MapMode = "idle" | "arriving" | "here" | "tracking" | "pick";
+/**
+ * idle: around the pickup · preview: the trip line before booking ·
+ * arriving: driver coming to the pickup · here: driver at the pickup ·
+ * tracking: on the way to the dropoff · pick: choosing a spot under the centre pin.
+ */
+export type MapMode = "idle" | "preview" | "arriving" | "here" | "tracking" | "pick";
 type G = typeof google.maps;
 
 /** Google paints lines itself, so route colours are hex mirrors of the --primary / --ink / --card tokens. */
 const ROUTE_COLOR = "#16884f";
 const APPROACH_COLOR = "#1f2326";
 const CASING_COLOR = "#ffffff";
+
+/** Live trip numbers worked out from the real route and the driver's real position. */
+export interface LiveInfo {
+  target: "pickup" | "dropoff";
+  /** Metres and seconds still to go. */
+  distance: number;
+  duration: number;
+  /** The next turn, when Google gave turn-by-turn steps. */
+  next: { step: RouteStep; in: number } | null;
+  /** False when no road route was found (straight-line estimate). */
+  real: boolean;
+}
 
 interface Props {
   mode: MapMode;
@@ -24,20 +53,25 @@ interface Props {
   sheetHeight: number;
   /** Space covered at the top (status bar, route pill), in px. */
   topInset?: number;
-  /** How long the driver takes to reach the pickup in "arriving" mode. */
-  arrivingMs?: number;
-  /** How long the simulated trip animation runs in "tracking" mode. */
-  tripMs?: number;
   /** Where the map starts in "pick" mode. */
   pickStart?: LngLat | undefined;
-  onTripEnd?: () => void;
   onPickupClick?: () => void;
   /** Label above the pickup pin (defaults to "Pickup"). */
   pickupLabel?: string | undefined;
   /** Online drivers to show in "idle" mode, at their real positions. */
-  drivers?: { id: string; at: LngLat; kind: "bus" | "car" }[] | undefined;
-  /** Where the assigned driver is coming from in "arriving" mode. */
-  driverFrom?: LngLat | null | undefined;
+  drivers?: { id: string; at: LngLat; vehicle: VehicleId }[] | undefined;
+  /** Live position of the assigned driver (arriving / here / tracking). */
+  driverAt?: LngLat | null | undefined;
+  /** The assigned driver's vehicle type. */
+  vehicle?: VehicleId | undefined;
+  /** This phone's live position (blue dot). */
+  meAt?: LngLat | null | undefined;
+  /** Live passenger position, shown to the driver. */
+  passengerAt?: LngLat | null | undefined;
+  /** Keep the camera on the driver while they drive (until the map is dragged). */
+  follow?: boolean | undefined;
+  /** Remaining distance/time and the next turn, whenever they change. */
+  onLive?: ((info: LiveInfo | null) => void) | undefined;
   /** "pick" mode: the coordinate under the centre pin after the map stops moving. */
   onCenter?: ((at: LngLat) => void) | undefined;
 }
@@ -127,69 +161,104 @@ function MapMarker({
   return el ? createPortal(children, el) : null;
 }
 
-/** A vehicle seen from above that drives along a real road line. */
-function MovingVehicle({
-  path,
-  durationMs,
-  kind,
-  loop = false,
-  delayMs = 0,
-  onEnd,
-}: {
-  path: LngLat[];
-  durationMs: number;
-  kind: "bus" | "car";
-  loop?: boolean;
-  delayMs?: number;
-  onEnd?: (() => void) | undefined;
-}) {
+/** A vehicle seen from above at its real position; glides smoothly between GPS updates and turns to face its direction. */
+function LiveVehicle({ at, vehicle }: { at: LngLat; vehicle: VehicleId }) {
   const ctx = useContext(Ctx);
-  const endRef = useRef(onEnd);
-  endRef.current = onEnd;
+  const marker = useRef<Overlay | null>(null);
+  const cur = useRef<{ at: LngLat; heading: number }>({ at, heading: 0 });
+  const raf = useRef(0);
 
   useEffect(() => {
-    if (!ctx || path.length < 2) return;
+    if (!ctx) return;
+    const v = vehicleById(vehicle);
     const div = document.createElement("div");
     const img = document.createElement("img");
-    img.src = kind === "bus" ? busTop : carTop;
-    img.alt = kind === "bus" ? "Bus" : "Car";
-    img.style.width = kind === "bus" ? "16px" : "17px";
-    img.style.filter = "drop-shadow(0 2px 2px rgb(0 0 0 / 0.25))";
+    img.src = v.mapIcon;
+    img.alt = v.name;
+    img.style.width = `${v.mapWidth}px`;
+    img.style.filter = "drop-shadow(0 2px 2px rgb(0 0 0 / 0.3))";
     div.appendChild(img);
-    const start = pointAlong(path, 0);
-    const m = new ctx.Overlay(div, start.at, "center", [0, 0]);
-    m.rotation = start.heading;
+    const m = new ctx.Overlay(div, cur.current.at, "center", [0, 0]);
+    m.rotation = cur.current.heading;
     m.setMap(ctx.map);
-    let raf = 0;
-    let done = false;
-    const t0 = performance.now() + delayMs;
-    const tick = (now: number) => {
-      const raw = Math.max(0, now - t0) / durationMs;
-      let t = raw;
-      if (loop) {
-        const cycle = raw % 2;
-        t = cycle <= 1 ? cycle : 2 - cycle;
-      }
-      const p = pointAlong(path, Math.min(1, t));
-      const heading = loop && raw % 2 > 1 ? (p.heading + 180) % 360 : p.heading;
-      m.moveTo(p.at, heading);
-      if (!loop && raw >= 1) {
-        if (!done) {
-          done = true;
-          endRef.current?.();
-        }
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    marker.current = m;
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf.current);
       m.setMap(null);
+      marker.current = null;
     };
-  }, [ctx, path, durationMs, kind, loop, delayMs]);
+  }, [ctx, vehicle]);
+
+  useEffect(() => {
+    const m = marker.current;
+    const from = cur.current.at;
+    const d = distanceM(from, at);
+    const heading = d > 3 ? bearing(from, at) : cur.current.heading;
+    if (!m || d > 3000) {
+      cur.current = { at, heading };
+      m?.moveTo(at, heading);
+      return;
+    }
+    if (d < 0.5) return;
+    cancelAnimationFrame(raf.current);
+    const t0 = performance.now();
+    const dur = Math.min(2500, 400 + d * 25);
+    const tick = (now: number) => {
+      const f = Math.min(1, (now - t0) / dur);
+      const p: LngLat = [from[0] + (at[0] - from[0]) * f, from[1] + (at[1] - from[1]) * f];
+      cur.current = { at: p, heading };
+      m.moveTo(p, heading);
+      if (f < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [at[0], at[1], ctx]);
 
   return null;
+}
+
+/**
+ * A road route from a moving point to a target, refreshed only when needed:
+ * first time, when the vehicle leaves the line by 80 m, or every 2 minutes after 150 m of driving
+ * (never more than every 15 s), so the paid route lookups stay low.
+ */
+function useLiveRoute(from: LngLat | null | undefined, to: LngLat | null, enabled: boolean) {
+  const [route, setRoute] = useState<Route | null>(null);
+  const routeRef = useRef<Route | null>(null);
+  routeRef.current = route;
+  const last = useRef<{ from: LngLat; time: number } | null>(null);
+  const busy = useRef(false);
+  const toKey = to && enabled ? `${to[0].toFixed(5)},${to[1].toFixed(5)}` : "";
+
+  useEffect(() => {
+    setRoute(null);
+    last.current = null;
+  }, [toKey]);
+
+  useEffect(() => {
+    if (!toKey || !from || !to || busy.current) return;
+    const prev = last.current;
+    const now = Date.now();
+    const r = routeRef.current;
+    const off = r ? alongRoute(r.coords, from).off : Infinity;
+    const need = !prev || (now - prev.time > 15_000 && (off > 80 || (now - prev.time > 120_000 && distanceM(prev.from, from) > 150)));
+    if (!need) return;
+    busy.current = true;
+    last.current = { from, time: now };
+    const key = toKey;
+    void getRoute(from, to)
+      .then((res) => {
+        if (key === toKeyRef.current) setRoute(res);
+      })
+      .finally(() => {
+        busy.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toKey, from?.[0], from?.[1]]);
+  const toKeyRef = useRef(toKey);
+  toKeyRef.current = toKey;
+
+  return route;
 }
 
 function Label({ title, value, onClick, chevron = true }: { title: string; value: string; onClick?: (() => void) | undefined; chevron?: boolean }) {
@@ -222,23 +291,43 @@ function PickupPin() {
   );
 }
 
+function MeDot() {
+  return (
+    <span className="relative flex size-4 items-center justify-center">
+      <span className="absolute inset-[-6px] rounded-full bg-locate/25 animate-pulse-ring" />
+      <span className="size-4 rounded-full bg-locate ring-[3px] ring-card shadow-float" />
+    </span>
+  );
+}
+
+function PassengerPin() {
+  return (
+    <span className="flex size-7 items-center justify-center rounded-full bg-locate text-primary-foreground ring-2 ring-card shadow-float">
+      <PersonStanding className="size-4" />
+    </span>
+  );
+}
+
 const toLatLng = (p: LngLat) => ({ lat: p[1], lng: p[0] });
 /** Metres per screen pixel at a zoom level (Web Mercator). */
 const mPerPx = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+
 export function RideMap({
   mode,
   pickup,
   dropoff,
   sheetHeight,
   topInset = 48,
-  arrivingMs = 8000,
-  tripMs = 16000,
   pickStart,
-  onTripEnd,
   onPickupClick,
   pickupLabel,
   drivers = [],
-  driverFrom,
+  driverAt,
+  vehicle = "boda",
+  meAt,
+  passengerAt,
+  follow = false,
+  onLive,
   onCenter,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
@@ -248,13 +337,13 @@ export function RideMap({
   const [satellite, setSatellite] = useState(false);
   const [rootH, setRootH] = useState(800);
   const [trip, setTrip] = useState<Route | null>(null);
-  const [approach, setApproach] = useState<Route | null>(null);
-  const driverFromRef = useRef(driverFrom);
-  driverFromRef.current = driverFrom;
+  const [dragged, setDragged] = useState(false);
   const lines = useRef<{ casing: google.maps.Polyline; route: google.maps.Polyline; approach: google.maps.Polyline } | null>(null);
   const probe = useRef<google.maps.OverlayView | null>(null);
   const centerRef = useRef(onCenter);
   centerRef.current = onCenter;
+  const liveRef = useRef(onLive);
+  liveRef.current = onLive;
   // The map stops where the sheet starts, so Google's logo and terms stay visible.
   const mapBottom = Math.max(0, Math.min(sheetHeight, rootH - 160));
   const mapH = rootH - mapBottom;
@@ -294,6 +383,7 @@ export function RideMap({
         p.onRemove = () => undefined;
         p.setMap(map);
         probe.current = p;
+        map.addListener("dragstart", () => setDragged(true));
         map.addListener("idle", () => {
           const cb = centerRef.current;
           const proj = probe.current?.getProjection();
@@ -322,7 +412,9 @@ export function RideMap({
     return () => ro.disconnect();
   }, []);
 
-  /* Real road routes. */
+  useEffect(() => setDragged(false), [mode]);
+
+  /* The planned trip on real roads (pickup → dropoff). */
   useEffect(() => {
     let live = true;
     setTrip(null);
@@ -332,31 +424,48 @@ export function RideMap({
     };
   }, [pickup.lng, pickup.lat, dropoff?.lng, dropoff?.lat]);
 
+  /* The live route from where the driver really is to where they're heading. */
+  const target: "pickup" | "dropoff" | null =
+    mode === "arriving" ? "pickup" : mode === "tracking" && dropoff ? "dropoff" : null;
+  const targetAt = target === "pickup" ? lngLat(pickup) : target === "dropoff" && dropoff ? lngLat(dropoff) : null;
+  const live = useLiveRoute(driverAt, targetAt, !!target && !!driverAt);
+
+  /* Report remaining distance, time and the next turn. */
   useEffect(() => {
-    let live = true;
-    if (mode !== "arriving" && mode !== "here") return;
-    // From the driver's real position when known, otherwise about a kilometre out on the road network.
-    const start = driverFromRef.current ?? offsetPoint(lngLat(pickup), 900, 40);
-    void getRoute(start, lngLat(pickup)).then((r) => live && setApproach(r));
-    return () => {
-      live = false;
-    };
-  }, [mode === "arriving" || mode === "here", pickup.lng, pickup.lat]);
+    const cb = liveRef.current;
+    if (!cb) return;
+    if (!target || !live || !driverAt) {
+      cb(null);
+      return;
+    }
+    const left = remainingOn(live, driverAt);
+    cb({ target, distance: left.distance, duration: left.duration, next: nextStep(live, driverAt), real: live.real });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, target, driverAt?.[0], driverAt?.[1]]);
 
   /* Push route lines into the map. */
+  const shown: { line: LngLat[]; style: "route" | "approach" } =
+    mode === "preview" && trip
+      ? { line: trip.coords, style: "route" }
+      : mode === "arriving" && live && driverAt
+        ? { line: trimRoute(live.coords, driverAt), style: "approach" }
+        : mode === "tracking" && live && driverAt
+          ? { line: trimRoute(live.coords, driverAt), style: "route" }
+          : mode === "tracking" && trip
+            ? { line: trip.coords, style: "route" }
+            : { line: [], style: "route" };
   useEffect(() => {
-    const route = (mode === "tracking" && trip ? trip.coords : []).map(toLatLng);
-    const appr = (mode === "arriving" && approach ? approach.coords : []).map(toLatLng);
     if (!lines.current) return;
+    const path = shown.line.map(toLatLng);
     try {
-      lines.current.casing.setPath(route);
-      lines.current.route.setPath(route);
-      lines.current.approach.setPath(appr);
+      lines.current.casing.setPath(shown.style === "route" ? path : []);
+      lines.current.route.setPath(shown.style === "route" ? path : []);
+      lines.current.approach.setPath(shown.style === "approach" ? path : []);
     } catch (e) {
       // Google disables its objects when the key is rejected; keep the app usable.
       console.warn("Couldn't draw the route", e);
     }
-  }, [ctx, mode, trip, approach]);
+  });
 
   /* Camera. */
   const frame = () => {
@@ -379,10 +488,14 @@ export function RideMap({
       map.panTo(toLatLng(offsetPoint(at, (mPerPx(at[1], zoom) * topInset) / 2, 0)));
     };
 
-    if (mode === "tracking" && trip) {
-      if (!fit(trip.coords)) centre(lngLat(pickup), 15);
-    } else if (mode === "arriving" && approach) {
-      fit(approach.coords);
+    if (follow && driverAt && (mode === "arriving" || mode === "tracking")) {
+      centre(driverAt, 17);
+    } else if (mode === "preview" && trip) {
+      fit(trip.coords);
+    } else if (mode === "tracking") {
+      if (!fit(live && driverAt ? [driverAt, ...live.coords] : (trip?.coords ?? []))) centre(lngLat(pickup), 15);
+    } else if (mode === "arriving") {
+      if (!fit(driverAt ? [driverAt, lngLat(pickup), ...(live?.coords ?? [])] : [])) centre(lngLat(pickup), 16);
     } else if (mode === "here") {
       centre(lngLat(pickup), 17);
     } else if (mode === "pick") {
@@ -394,9 +507,15 @@ export function RideMap({
   const frameRef = useRef(frame);
   frameRef.current = frame;
 
+  const hasRoute = mode === "preview" ? !!trip : mode === "arriving" || mode === "tracking" ? !!live || !!trip : false;
   useEffect(() => {
     frameRef.current();
-  }, [ctx, mode, pickup.lng, pickup.lat, trip, approach, mode === "pick" ? 0 : mapH, topInset, pickStart?.[0], pickStart?.[1]]);
+  }, [ctx, mode, pickup.lng, pickup.lat, hasRoute, mode === "pick" ? 0 : mapH, topInset, pickStart?.[0], pickStart?.[1], !!driverAt]);
+
+  /* Follow the driver as they move, unless the map was dragged. */
+  useEffect(() => {
+    if (follow && !dragged) frameRef.current();
+  }, [follow, dragged, driverAt?.[0], driverAt?.[1]]);
 
   const toggleSatellite = () => {
     const next = !satellite;
@@ -404,8 +523,13 @@ export function RideMap({
     ctx?.map.setMapTypeId(next ? "hybrid" : "roadmap");
   };
 
+  const recenter = () => {
+    setDragged(false);
+    frameRef.current();
+  };
+
   const pickupAt = lngLat(pickup);
-  const driverAt = approach?.coords[0];
+  const showMe = meAt && !(driverAt && distanceM(meAt, driverAt) < 15 && mode === "tracking");
 
   return (
     <div ref={outer} className="absolute inset-0 overflow-hidden bg-map">
@@ -437,32 +561,25 @@ export function RideMap({
             </>
           )}
 
-          {mode === "idle" &&
-            drivers.map((d) => (
-              <MovingVehicle key={`${d.id}-${d.at[0]}-${d.at[1]}`} path={[d.at, offsetPoint(d.at, 2, 90)]} kind={d.kind} durationMs={400} />
-            ))}
+          {mode === "idle" && drivers.map((d) => <LiveVehicle key={d.id} at={d.at} vehicle={d.vehicle} />)}
 
-          {mode === "arriving" && approach && driverAt && (
-            <>
-              <MovingVehicle path={approach.coords} kind="bus" durationMs={arrivingMs} />
-              <MapMarker at={driverAt} anchor="bottom" offset={[0, -14]}>
-                <span className="flex flex-col items-center gap-1">
-                  <Label title="Driver's location" value="On the way" chevron={false} />
-                  <span className="flex size-6 items-center justify-center rounded-full bg-ink text-ink-foreground ring-2 ring-card">
-                    <UserRound className="size-3.5" />
-                  </span>
-                </span>
-              </MapMarker>
-            </>
+          {(mode === "arriving" || mode === "here" || mode === "tracking") && driverAt && (
+            <LiveVehicle key="driver" at={driverAt} vehicle={vehicle} />
           )}
 
-          {mode === "here" && <MovingVehicle path={[offsetPoint(pickupAt, 12, 90), offsetPoint(pickupAt, 14, 90)]} kind="bus" durationMs={500} />}
-
-          {mode === "tracking" && trip && (
-            <MovingVehicle key={`${trip.coords.length}-${trip.distance}`} path={trip.coords} kind="bus" durationMs={tripMs} delayMs={600} onEnd={onTripEnd} />
+          {passengerAt && (mode === "arriving" || mode === "here") && (
+            <MapMarker at={passengerAt} anchor="center">
+              <PassengerPin />
+            </MapMarker>
           )}
 
-          {mode === "tracking" && dropoff && (
+          {showMe && mode !== "pick" && (
+            <MapMarker at={meAt} anchor="center">
+              <MeDot />
+            </MapMarker>
+          )}
+
+          {(mode === "tracking" || mode === "preview") && dropoff && (
             <>
               <MapMarker at={lngLat(dropoff)} anchor="center">
                 <span className="flex size-7 items-center justify-center rounded-full bg-ink text-ink-foreground ring-2 ring-card">
@@ -502,8 +619,11 @@ export function RideMap({
         </button>
         <button
           aria-label="Recenter map"
-          onClick={() => frameRef.current()}
-          className="flex size-10 items-center justify-center rounded-full bg-card text-foreground shadow-float"
+          onClick={recenter}
+          className={cn(
+            "flex size-10 items-center justify-center rounded-full shadow-float",
+            follow && dragged ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
+          )}
         >
           <Navigation className="size-4" />
         </button>

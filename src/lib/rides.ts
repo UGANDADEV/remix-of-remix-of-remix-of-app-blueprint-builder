@@ -20,7 +20,7 @@ import type { RideStatus } from "./ride-logic";
 export interface RideDoc {
   id: string;
   passengerId: string;
-  passenger: { id: string; name: string; photo: string | null };
+  passenger: { id: string; name: string; photo: string | null; phone?: string };
   pickup: Place;
   dropoff: Place;
   trip: { distance: number; duration: number } | null;
@@ -34,6 +34,8 @@ export interface RideDoc {
   driver: DriverSnap | null;
   eta: number | null;
   driverAt: LngLat | null;
+  /** Passenger's live position while the ride is active. */
+  passengerAt: LngLat | null;
   rating: number;
   cancelledBy: "passenger" | "driver" | null;
   createdAt: number;
@@ -64,14 +66,14 @@ export interface OnlineDriver {
 const rides = () => collection(fb().db, "rides");
 const rideRef = (id: string) => doc(fb().db, "rides", id);
 
-const toRide = (id: string, d: Record<string, unknown>) => ({ id, rating: 0, cancelledBy: null, driverAt: null, ...d }) as RideDoc;
+const toRide = (id: string, d: Record<string, unknown>) => ({ id, rating: 0, cancelledBy: null, driverAt: null, passengerAt: null, ...d }) as RideDoc;
 
 export async function createRide(ride: Ride, user: User) {
   if (!ride.dropoff) throw new Error("Choose where you're going first");
   const now = Date.now();
   const ref = await addDoc(rides(), {
     passengerId: user.id,
-    passenger: { id: user.id, name: user.name, photo: user.photo },
+    passenger: { id: user.id, name: user.name, photo: user.photo, phone: user.phone },
     pickup: ride.pickup,
     dropoff: ride.dropoff,
     trip: ride.trip,
@@ -85,6 +87,7 @@ export async function createRide(ride: Ride, user: User) {
     driver: null,
     eta: null,
     driverAt: null,
+    passengerAt: ride.pickup.kind === "me" ? [ride.pickup.lng, ride.pickup.lat] : null,
     rating: 0,
     cancelledBy: null,
     createdAt: now,

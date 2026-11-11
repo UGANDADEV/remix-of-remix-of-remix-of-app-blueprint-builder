@@ -144,12 +144,91 @@ export function fromGoogle(g: { id: string; name: string; address: string; type:
 /* Routes                                                              */
 /* ------------------------------------------------------------------ */
 
+/** One turn-by-turn instruction from Google, e.g. "Turn left onto Juba Rd". */
+export interface RouteStep {
+  instruction: string;
+  maneuver: string;
+  distance: number;
+  start: LngLat;
+  end: LngLat;
+}
+
 export interface Route {
   coords: LngLat[];
   distance: number;
   duration: number;
   /** False when no road route was found and a straight line is drawn instead. */
   real: boolean;
+  steps?: RouteStep[] | undefined;
+}
+
+/** Where a point sits relative to a route line. */
+export interface AlongRoute {
+  /** Metres from the start of the line to the closest point on it. */
+  along: number;
+  /** Metres from the point to the line (how far off the route). */
+  off: number;
+  /** Segment index of the closest point. */
+  index: number;
+  /** The closest point on the line. */
+  at: LngLat;
+  /** Total line length in metres. */
+  total: number;
+}
+
+/** Project a point onto a polyline (flat-earth maths, accurate at town scale). */
+export function alongRoute(line: LngLat[], p: LngLat): AlongRoute {
+  if (line.length === 0) return { along: 0, off: 0, index: 0, at: p, total: 0 };
+  if (line.length === 1) return { along: 0, off: distanceM(line[0]!, p), index: 0, at: line[0]!, total: 0 };
+  const kx = 111320 * Math.cos((p[1] * Math.PI) / 180);
+  const ky = 110540;
+  let best = { along: 0, off: Infinity, index: 0, at: line[0]! };
+  let run = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i]!;
+    const b = line[i + 1]!;
+    const ax = (a[0] - p[0]) * kx;
+    const ay = (a[1] - p[1]) * ky;
+    const dx = (b[0] - a[0]) * kx;
+    const dy = (b[1] - a[1]) * ky;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, -(ax * dx + ay * dy) / len2));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const off = Math.hypot(cx, cy);
+    const seg = Math.sqrt(len2);
+    if (off < best.off) best = { along: run + t * seg, off, index: i, at: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] };
+    run += seg;
+  }
+  return { ...best, total: run };
+}
+
+/** The part of a route still ahead of a vehicle at `p`, starting where the vehicle is. */
+export function trimRoute(line: LngLat[], p: LngLat): LngLat[] {
+  if (line.length < 2) return line;
+  const a = alongRoute(line, p);
+  return [p, a.at, ...line.slice(a.index + 1)];
+}
+
+/** Remaining distance and time on a route for a vehicle at `p`. */
+export function remainingOn(route: Route, p: LngLat) {
+  const a = alongRoute(route.coords, p);
+  const left = Math.max(0, a.total - a.along) + a.off;
+  const share = a.total > 0 ? Math.min(1, left / a.total) : 1;
+  return { distance: left, duration: route.duration * share, off: a.off };
+}
+
+/** The next turn ahead of a vehicle at `p`, and how far away it is. */
+export function nextStep(route: Route, p: LngLat): { step: RouteStep; in: number } | null {
+  const steps = route.steps ?? [];
+  if (!steps.length) return null;
+  const me = alongRoute(route.coords, p).along;
+  // Each step's turn happens where the step starts; the next one is the first still ahead (by 15 m).
+  for (const step of steps) {
+    const startAt = alongRoute(route.coords, step.start).along;
+    if (startAt > me + 15) return { step, in: startAt - me };
+  }
+  return { step: steps[steps.length - 1]!, in: 0 };
 }
 
 /** Decode a Google encoded polyline into [lng, lat] pairs. */
