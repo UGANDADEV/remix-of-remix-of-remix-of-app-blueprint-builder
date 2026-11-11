@@ -5,7 +5,7 @@ import emptyImg from "@/assets/empty-calendar.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
-import { DRIVERS, driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
 import { useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";

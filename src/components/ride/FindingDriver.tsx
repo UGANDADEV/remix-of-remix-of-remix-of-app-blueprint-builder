@@ -51,7 +51,7 @@ export function FindingDriver({
   useEffect(() => {
     const timers = SCHEDULE.map((s, i) =>
       setTimeout(() => {
-        const driver = DRIVERS[s.driver];
+        const driver = DRIVERS[s.driver] ?? DRIVERS[0]!;
         setOffers((o) => [...o.filter((x) => x.driver.id !== driver.id), { id: round * 10 + i, driver, price: ride.price + s.extra }]);
       }, s.at),
     );

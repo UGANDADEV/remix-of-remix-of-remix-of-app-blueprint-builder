@@ -1,7 +1,7 @@
 import { MapPin, Star } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
-import { DRIVERS, driverById, naira, placeById, tripTotal } from "@/lib/move-data";
+import { driverById, naira, placeById, tripTotal } from "@/lib/move-data";
 import type { Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 

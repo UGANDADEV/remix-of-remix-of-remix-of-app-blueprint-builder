@@ -61,7 +61,7 @@ export function PhotoCropper({
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.current.size === 2) {
             const [a, b] = [...pointers.current.values()];
-            pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+            if (a && b) pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
           }
         }}
         onPointerMove={(e) => {
@@ -70,8 +70,10 @@ export function PhotoCropper({
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.current.size === 2 && pinch.current) {
             const [a, b] = [...pointers.current.values()];
-            const d = Math.hypot(a.x - b.x, a.y - b.y);
-            setZoom(Math.min(4, Math.max(1, (pinch.current.zoom * d) / pinch.current.dist)));
+            if (a && b) {
+              const d = Math.hypot(a.x - b.x, a.y - b.y);
+              setZoom(Math.min(4, Math.max(1, (pinch.current.zoom * d) / pinch.current.dist)));
+            }
           } else {
             setPos((p) => clamp({ x: p.x + e.clientX - prev.x, y: p.y + e.clientY - prev.y }));
           }

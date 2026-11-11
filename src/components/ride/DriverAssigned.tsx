@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomSheet } from "@/components/move/BottomSheet";
-import { DRIVERS, driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
 
@@ -59,6 +59,7 @@ export function DriverAssigned({
       }, 6000);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [ride.stage, mins]);
 
   const share = async () => {
