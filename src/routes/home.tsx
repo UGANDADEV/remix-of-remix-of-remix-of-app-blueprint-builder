@@ -12,15 +12,11 @@ import { SearchRoute } from "@/components/ride/SearchRoute";
 import { PickOnMap } from "@/components/ride/PickOnMap";
 import { lngLat, type LngLat } from "@/lib/geo";
 import { driverById, tripTotal, type NearbyDeal, type Place } from "@/lib/move-data";
-import mapboxCss from "mapbox-gl/dist/mapbox-gl.css?url";
 import { addHistory, resetRide, updateRide, useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 
 export const Route = createFileRoute("/home")({
-  head: () => ({
-    ...pageHead("Book a ride", "See nearby buses, mini buses and taxis in Gulu and name your own fare."),
-    links: [{ rel: "stylesheet", href: mapboxCss }],
-  }),
+  head: () => pageHead("Book a ride", "See nearby buses, mini buses and taxis in Gulu and name your own fare."),
   component: Home,
 });
 

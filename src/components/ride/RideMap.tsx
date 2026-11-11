@@ -1,20 +1,20 @@
-import { Box, ChevronRight, Layers, Navigation, PersonStanding, UserRound } from "lucide-react";
+import { ChevronRight, Layers, Navigation, PersonStanding, UserRound } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { GeoJSONSource, Map as MbMap, Marker as MbMarker } from "mapbox-gl";
 import busTop from "@/assets/map-bus.png";
 import carTop from "@/assets/map-car.png";
-import { getRoute, lngLat, MAPBOX_TOKEN, offsetPoint, pointAlong, type LngLat, type Place, type Route } from "@/lib/geo";
+import { lngLat, offsetPoint, pointAlong, type LngLat, type Place, type Route } from "@/lib/geo";
+import { loadGoogleMaps, onMapsAuthFailure } from "@/lib/google-maps-loader";
+import { getRoute } from "@/lib/maps";
 import { cn } from "@/lib/utils";
 
 export type MapMode = "idle" | "arriving" | "here" | "tracking" | "pick";
-type MapLib = typeof import("mapbox-gl").default;
+type G = typeof google.maps;
 
-/** Mapbox paints lines on the GPU, so route colours are hex mirrors of the --primary / --ink tokens. */
+/** Google paints lines itself, so route colours are hex mirrors of the --primary / --ink / --card tokens. */
 const ROUTE_COLOR = "#16884f";
 const APPROACH_COLOR = "#1f2326";
-const STYLES = { streets: "mapbox://styles/mapbox/standard", satellite: "mapbox://styles/mapbox/standard-satellite" } as const;
-type StyleKey = keyof typeof STYLES;
+const CASING_COLOR = "#ffffff";
 
 interface Props {
   mode: MapMode;
@@ -36,7 +36,52 @@ interface Props {
   onCenter?: ((at: LngLat) => void) | undefined;
 }
 
-const Ctx = createContext<{ map: MbMap; lib: MapLib } | null>(null);
+/** Builds an HTML overlay class once Google's library has loaded. */
+function makeOverlay(g: G) {
+  return class HtmlOverlay extends g.OverlayView {
+    pos: google.maps.LatLng;
+    div: HTMLDivElement;
+    anchor: "center" | "bottom" | "top";
+    offset: [number, number];
+    rotation = 0;
+    constructor(div: HTMLDivElement, at: LngLat, anchor: "center" | "bottom" | "top", offset: [number, number]) {
+      super();
+      this.div = div;
+      this.pos = new g.LatLng(at[1], at[0]);
+      this.anchor = anchor;
+      this.offset = offset;
+      div.style.position = "absolute";
+      g.OverlayView.preventMapHitsAndGesturesFrom(div);
+    }
+    override onAdd() {
+      this.getPanes()?.overlayMouseTarget.appendChild(this.div);
+    }
+    override draw() {
+      const pt = this.getProjection()?.fromLatLngToDivPixel(this.pos);
+      if (!pt) return;
+      const ty = this.anchor === "bottom" ? "-100%" : this.anchor === "top" ? "0%" : "-50%";
+      this.div.style.left = `${pt.x + this.offset[0]}px`;
+      this.div.style.top = `${pt.y + this.offset[1]}px`;
+      this.div.style.transform = `translate(-50%, ${ty})${this.rotation ? ` rotate(${this.rotation}deg)` : ""}`;
+    }
+    override onRemove() {
+      this.div.remove();
+    }
+    moveTo(at: LngLat, rotation = this.rotation) {
+      this.pos = new g.LatLng(at[1], at[0]);
+      this.rotation = rotation;
+      this.draw();
+    }
+  };
+}
+type Overlay = InstanceType<ReturnType<typeof makeOverlay>>;
+interface MapCtx {
+  map: google.maps.Map;
+  g: G;
+  Overlay: ReturnType<typeof makeOverlay>;
+}
+
+const Ctx = createContext<MapCtx | null>(null);
 
 /** A DOM marker whose content is rendered by React through a portal. */
 function MapMarker({
@@ -44,27 +89,25 @@ function MapMarker({
   anchor = "center",
   offset = [0, 0],
   children,
-  className,
 }: {
   at: LngLat;
   anchor?: "center" | "bottom" | "top";
   offset?: [number, number];
   children: ReactNode;
-  className?: string;
 }) {
   const ctx = useContext(Ctx);
   const [el, setEl] = useState<HTMLDivElement | null>(null);
-  const marker = useRef<MbMarker | null>(null);
+  const marker = useRef<Overlay | null>(null);
 
   useEffect(() => {
     if (!ctx) return;
     const div = document.createElement("div");
-    if (className) div.className = className;
-    const m = new ctx.lib.Marker({ element: div, anchor, offset }).setLngLat(at).addTo(ctx.map);
+    const m = new ctx.Overlay(div, at, anchor, offset);
+    m.setMap(ctx.map);
     marker.current = m;
     setEl(div);
     return () => {
-      m.remove();
+      m.setMap(null);
       marker.current = null;
     };
     // Recreate only when the map, anchor or offset changes; position updates below.
@@ -72,7 +115,7 @@ function MapMarker({
   }, [ctx, anchor, offset[0], offset[1]]);
 
   useEffect(() => {
-    marker.current?.setLngLat(at);
+    marker.current?.moveTo(at);
   }, [at[0], at[1]]);
 
   return el ? createPortal(children, el) : null;
@@ -100,16 +143,17 @@ function MovingVehicle({
 
   useEffect(() => {
     if (!ctx || path.length < 2) return;
+    const div = document.createElement("div");
     const img = document.createElement("img");
     img.src = kind === "bus" ? busTop : carTop;
     img.alt = kind === "bus" ? "Bus" : "Car";
     img.style.width = kind === "bus" ? "16px" : "17px";
     img.style.filter = "drop-shadow(0 2px 2px rgb(0 0 0 / 0.25))";
+    div.appendChild(img);
     const start = pointAlong(path, 0);
-    const m = new ctx.lib.Marker({ element: img, rotationAlignment: "map", pitchAlignment: "map" })
-      .setLngLat(start.at)
-      .setRotation(start.heading)
-      .addTo(ctx.map);
+    const m = new ctx.Overlay(div, start.at, "center", [0, 0]);
+    m.rotation = start.heading;
+    m.setMap(ctx.map);
     let raf = 0;
     let done = false;
     const t0 = performance.now() + delayMs;
@@ -122,7 +166,7 @@ function MovingVehicle({
       }
       const p = pointAlong(path, Math.min(1, t));
       const heading = loop && raw % 2 > 1 ? (p.heading + 180) % 360 : p.heading;
-      m.setLngLat(p.at).setRotation(heading);
+      m.moveTo(p.at, heading);
       if (!loop && raw >= 1) {
         if (!done) {
           done = true;
@@ -135,7 +179,7 @@ function MovingVehicle({
     raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
-      m.remove();
+      m.setMap(null);
     };
   }, [ctx, path, durationMs, kind, loop, delayMs]);
 
@@ -172,62 +216,23 @@ function PickupPin() {
   );
 }
 
-const emptyLine = { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: [] as LngLat[] } };
-const lineOf = (coords: LngLat[]) => ({ ...emptyLine, geometry: { type: "LineString" as const, coordinates: coords } });
-
-function ensureLayers(map: MbMap) {
-  if (!map.getSource("route")) map.addSource("route", { type: "geojson", data: emptyLine });
-  if (!map.getSource("approach")) map.addSource("approach", { type: "geojson", data: emptyLine });
-  if (!map.getLayer("route-casing"))
-    map.addLayer({
-      id: "route-casing",
-      type: "line",
-      source: "route",
-      slot: "middle",
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: { "line-color": "#ffffff", "line-width": 9, "line-emissive-strength": 1 },
-    });
-  if (!map.getLayer("route-line"))
-    map.addLayer({
-      id: "route-line",
-      type: "line",
-      source: "route",
-      slot: "middle",
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: { "line-color": ROUTE_COLOR, "line-width": 5, "line-emissive-strength": 1 },
-    });
-  if (!map.getLayer("approach-line"))
-    map.addLayer({
-      id: "approach-line",
-      type: "line",
-      source: "approach",
-      slot: "middle",
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: { "line-color": APPROACH_COLOR, "line-width": 3.5, "line-dasharray": [0.4, 2], "line-emissive-strength": 1 },
-    });
-}
-
-function apply3d(map: MbMap, on: boolean) {
-  try {
-    map.setConfigProperty("basemap", "show3dObjects", on);
-  } catch {
-    /* style without that option */
-  }
-  if (on) {
-    if (!map.getSource("mapbox-dem"))
-      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-    map.setTerrain({ source: "mapbox-dem", exaggeration: 1.4 });
-  } else {
-    map.setTerrain(null);
-  }
-}
-
 interface Traffic {
   path: LngLat[];
   kind: "bus" | "car";
   ms: number;
   delay: number;
 }
+
+const toLatLng = (p: LngLat) => ({ lat: p[1], lng: p[0] });
+/** Metres per screen pixel at a zoom level (Web Mercator). */
+const mPerPx = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+// Fixed spread of cruising vehicles around the pickup, so repeat visits reuse cached routes.
+const TRAFFIC = [
+  [420, 15, 760, 200],
+  [600, 95, 520, 280],
+  [380, 170, 820, 330],
+  [700, 250, 450, 60],
+] as const;
 
 export function RideMap({
   mode,
@@ -243,80 +248,84 @@ export function RideMap({
   onCenter,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
-  const [ctx, setCtx] = useState<{ map: MbMap; lib: MapLib } | null>(null);
+  const outer = useRef<HTMLDivElement>(null);
+  const [ctx, setCtx] = useState<MapCtx | null>(null);
   const [failed, setFailed] = useState(false);
-  const [is3d, setIs3d] = useState(false);
-  const [styleKey, setStyleKey] = useState<StyleKey>("streets");
-  const [size, setSize] = useState({ w: 390, h: 800 });
+  const [satellite, setSatellite] = useState(false);
+  const [rootH, setRootH] = useState(800);
   const [trip, setTrip] = useState<Route | null>(null);
   const [approach, setApproach] = useState<Route | null>(null);
   const [traffic, setTraffic] = useState<Traffic[]>([]);
-  const lines = useRef<{ route: LngLat[]; approach: LngLat[] }>({ route: [], approach: [] });
-  const threeD = useRef(is3d);
-  threeD.current = is3d;
+  const lines = useRef<{ casing: google.maps.Polyline; route: google.maps.Polyline; approach: google.maps.Polyline } | null>(null);
+  const probe = useRef<google.maps.OverlayView | null>(null);
   const centerRef = useRef(onCenter);
   centerRef.current = onCenter;
-  const pickY = (topInset + (size.h - sheetHeight)) / 2;
+  // The map stops where the sheet starts, so Google's logo and terms stay visible.
+  const mapBottom = Math.max(0, Math.min(sheetHeight, rootH - 160));
+  const mapH = rootH - mapBottom;
+  const pickY = (topInset + mapH) / 2;
   const pickYRef = useRef(pickY);
   pickYRef.current = pickY;
 
   /* Create the map once, in the browser only. */
   useEffect(() => {
-    let map: MbMap | null = null;
     let cancelled = false;
-    (async () => {
-      try {
-        const lib = (await import("mapbox-gl")).default;
+    const off = onMapsAuthFailure(() => setFailed(true));
+    loadGoogleMaps()
+      .then((g) => {
         if (cancelled || !box.current) return;
-        if (!lib.supported?.() && typeof lib.supported === "function") throw new Error("WebGL unavailable");
-        lib.accessToken = MAPBOX_TOKEN;
-        const m = new lib.Map({
-          container: box.current,
-          style: STYLES.streets,
-          center: lngLat(pickup),
+        const map = new g.Map(box.current, {
+          center: toLatLng(lngLat(pickup)),
           zoom: 15,
-          attributionControl: false,
-          logoPosition: "top-left",
-          config: { basemap: { lightPreset: "day", show3dObjects: false, showPointOfInterestLabels: true } },
+          disableDefaultUI: true,
+          clickableIcons: false,
+          gestureHandling: "greedy",
+          keyboardShortcuts: false,
+          mapTypeId: "roadmap",
         });
-        map = m;
-        m.addControl(new lib.AttributionControl({ compact: true }), "top-right");
-        m.on("style.load", () => {
-          ensureLayers(m);
-          (m.getSource("route") as GeoJSONSource | undefined)?.setData(lineOf(lines.current.route));
-          (m.getSource("approach") as GeoJSONSource | undefined)?.setData(lineOf(lines.current.approach));
-          apply3d(m, threeD.current);
+        const casing = new g.Polyline({ map, path: [], strokeColor: CASING_COLOR, strokeWeight: 9, strokeOpacity: 1, zIndex: 1 });
+        const route = new g.Polyline({ map, path: [], strokeColor: ROUTE_COLOR, strokeWeight: 5, strokeOpacity: 1, zIndex: 2 });
+        const appr = new g.Polyline({
+          map,
+          path: [],
+          strokeOpacity: 0,
+          zIndex: 2,
+          icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: APPROACH_COLOR, scale: 2.5 }, offset: "0", repeat: "9px" }],
         });
-        m.on("load", () => !cancelled && setCtx({ map: m, lib }));
-        m.on("moveend", () => {
+        lines.current = { casing, route, approach: appr };
+        const p = new g.OverlayView();
+        p.onAdd = () => undefined;
+        p.draw = () => undefined;
+        p.onRemove = () => undefined;
+        p.setMap(map);
+        probe.current = p;
+        map.addListener("idle", () => {
           const cb = centerRef.current;
-          if (!cb) return;
-          const c = m.unproject([m.getContainer().clientWidth / 2, pickYRef.current]);
-          cb([c.lng, c.lat]);
+          const proj = probe.current?.getProjection();
+          if (!cb || !proj || !box.current) return;
+          const c = proj.fromContainerPixelToLatLng(new g.Point(box.current.clientWidth / 2, pickYRef.current));
+          if (c) cb([c.lng(), c.lat()]);
         });
-        m.on("error", (e) => console.warn("Map error", e.error?.message));
-      } catch (e) {
+        setCtx({ map, g, Overlay: makeOverlay(g) });
+      })
+      .catch((e: unknown) => {
         console.error("Map failed to start", e);
-        setFailed(true);
-      }
-    })();
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
-      map?.remove();
+      off();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const el = box.current;
+    const el = outer.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setSize({ w: el.clientWidth, h: el.clientHeight });
-      ctx?.map.resize();
-    });
+    const ro = new ResizeObserver(() => setRootH(el.clientHeight));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ctx]);
+  }, []);
 
   /* Real road routes. */
   useEffect(() => {
@@ -347,11 +356,13 @@ export function RideMap({
     }
     let live = true;
     const origin = lngLat(pickup);
-    const trips = Array.from({ length: 6 }, (_, i) => {
-      const a = offsetPoint(origin, 250 + Math.random() * 700, Math.random() * 360);
-      const b = offsetPoint(origin, 250 + Math.random() * 700, Math.random() * 360);
-      return getRoute(a, b).then((r) => ({ r, kind: (i % 2 === 0 ? "bus" : "car") as "bus" | "car", delay: i * 400 }));
-    });
+    const trips = TRAFFIC.map(([d1, a1, d2, a2], i) =>
+      getRoute(offsetPoint(origin, d1, a1), offsetPoint(origin, d2, a2)).then((r) => ({
+        r,
+        kind: (i % 2 === 0 ? "bus" : "car") as "bus" | "car",
+        delay: i * 400,
+      })),
+    );
     void Promise.all(trips).then((all) => {
       if (!live) return;
       setTraffic(
@@ -365,46 +376,50 @@ export function RideMap({
 
   /* Push route lines into the map. */
   useEffect(() => {
-    const route = mode === "tracking" && trip ? trip.coords : [];
-    const appr = mode === "arriving" && approach ? approach.coords : [];
-    lines.current = { route, approach: appr };
-    if (!ctx) return;
-    (ctx.map.getSource("route") as GeoJSONSource | undefined)?.setData(lineOf(route));
-    (ctx.map.getSource("approach") as GeoJSONSource | undefined)?.setData(lineOf(appr));
+    const route = (mode === "tracking" && trip ? trip.coords : []).map(toLatLng);
+    const appr = (mode === "arriving" && approach ? approach.coords : []).map(toLatLng);
+    if (!lines.current) return;
+    try {
+      lines.current.casing.setPath(route);
+      lines.current.route.setPath(route);
+      lines.current.approach.setPath(appr);
+    } catch (e) {
+      // Google disables its objects when the key is rejected; keep the app usable.
+      console.warn("Couldn't draw the route", e);
+    }
   }, [ctx, mode, trip, approach]);
 
   /* Camera. */
   const frame = () => {
     if (!ctx) return;
-    const { map } = ctx;
-    const h = map.getContainer().clientHeight;
-    const visible = Math.max(80, h - sheetHeight - topInset);
-    const pad = {
-      top: topInset + Math.min(70, visible * 0.3),
-      bottom: sheetHeight + Math.min(40, visible * 0.15),
-      left: 50,
-      right: 50,
-    };
+    const { map, g } = ctx;
+    const visible = Math.max(80, mapH - topInset);
     const fit = (pts: LngLat[]) => {
       if (pts.length < 2) return false;
-      const b = new ctx.lib.LngLatBounds(pts[0], pts[0]);
-      pts.forEach((p) => b.extend(p));
-      map.fitBounds(b, { padding: pad, maxZoom: 16.5, duration: 900, pitch: map.getPitch(), bearing: map.getBearing() });
+      const b = new g.LatLngBounds();
+      pts.forEach((p) => b.extend(toLatLng(p)));
+      map.fitBounds(b, { top: topInset + Math.min(70, visible * 0.3), bottom: Math.min(40, visible * 0.15), left: 50, right: 50 });
+      g.event.addListenerOnce(map, "idle", () => {
+        if ((map.getZoom() ?? 0) > 17) map.setZoom(17);
+      });
       return true;
     };
-    const centre = (at: LngLat, zoom: number) =>
-      map.easeTo({ center: at, zoom, offset: [0, (topInset - sheetHeight) / 2], duration: 900 });
+    // Put a point in the middle of the part of the map that isn't covered at the top.
+    const centre = (at: LngLat, zoom: number) => {
+      map.setZoom(zoom);
+      map.panTo(toLatLng(offsetPoint(at, (mPerPx(at[1], zoom) * topInset) / 2, 0)));
+    };
 
     if (mode === "tracking" && trip) {
       if (!fit(trip.coords)) centre(lngLat(pickup), 15);
     } else if (mode === "arriving" && approach) {
       fit(approach.coords);
     } else if (mode === "here") {
-      centre(lngLat(pickup), 16.5);
+      centre(lngLat(pickup), 17);
     } else if (mode === "pick") {
       centre(pickStart ?? lngLat(pickup), 16);
     } else {
-      centre(lngLat(pickup), 15.3);
+      centre(lngLat(pickup), 15);
     }
   };
   const frameRef = useRef(frame);
@@ -412,30 +427,22 @@ export function RideMap({
 
   useEffect(() => {
     frameRef.current();
-  }, [ctx, mode, pickup.lng, pickup.lat, trip, approach, mode === "pick" ? 0 : sheetHeight, topInset, pickStart?.[0], pickStart?.[1]]);
+  }, [ctx, mode, pickup.lng, pickup.lat, trip, approach, mode === "pick" ? 0 : mapH, topInset, pickStart?.[0], pickStart?.[1]]);
 
-  const toggle3d = () => {
-    const next = !is3d;
-    setIs3d(next);
-    if (!ctx) return;
-    apply3d(ctx.map, next);
-    ctx.map.easeTo({ pitch: next ? 62 : 0, bearing: next ? -20 : 0, duration: 1000 });
-  };
-
-  const toggleStyle = () => {
-    const next: StyleKey = styleKey === "streets" ? "satellite" : "streets";
-    setStyleKey(next);
-    ctx?.map.setStyle(STYLES[next], {
-      config: { basemap: { lightPreset: "day", show3dObjects: is3d } },
-    } as unknown as Parameters<MbMap["setStyle"]>[1]);
+  const toggleSatellite = () => {
+    const next = !satellite;
+    setSatellite(next);
+    ctx?.map.setMapTypeId(next ? "hybrid" : "roadmap");
   };
 
   const pickupAt = lngLat(pickup);
   const driverAt = approach?.coords[0];
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-map">
-      <div ref={box} className="move-map absolute inset-0" />
+    <div ref={outer} className="absolute inset-0 overflow-hidden bg-map">
+      <div className="move-map absolute inset-x-0 top-0" style={{ bottom: mapBottom }}>
+        <div ref={box} className="size-full" />
+      </div>
 
       {failed && (
         <div className="absolute inset-x-6 top-1/3 z-10 rounded-xl bg-card p-4 text-center text-xs text-muted-foreground shadow-float">
@@ -510,25 +517,14 @@ export function RideMap({
         </div>
       )}
 
-      <div className="absolute right-4 z-10 flex flex-col gap-2" style={{ bottom: sheetHeight + 12 }}>
+      <div className="absolute right-4 z-10 flex flex-col gap-2" style={{ bottom: sheetHeight + 36 }}>
         <button
-          aria-label={is3d ? "Switch to 2D map" : "Switch to 3D map"}
-          aria-pressed={is3d}
-          onClick={toggle3d}
-          className={cn(
-            "flex size-10 items-center justify-center rounded-full text-[11px] font-bold shadow-float transition-colors",
-            is3d ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
-          )}
-        >
-          {is3d ? "2D" : <Box className="size-4" />}
-        </button>
-        <button
-          aria-label={styleKey === "streets" ? "Show satellite view" : "Show street map"}
-          aria-pressed={styleKey === "satellite"}
-          onClick={toggleStyle}
+          aria-label={satellite ? "Show street map" : "Show satellite view"}
+          aria-pressed={satellite}
+          onClick={toggleSatellite}
           className={cn(
             "flex size-10 items-center justify-center rounded-full shadow-float transition-colors",
-            styleKey === "satellite" ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
+            satellite ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
           )}
         >
           <Layers className="size-4" />

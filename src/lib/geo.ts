@@ -1,15 +1,9 @@
 /**
- * Real-world geography for Gulu City, Northern Uganda.
- * Map tiles, 3D and routes come from Mapbox. Search is Gulu-only: a bundled
- * snapshot of every named place in Gulu (OpenStreetMap + local names) answers
- * instantly, then Mapbox and Photon (live OpenStreetMap) add anything newer.
+ * Pure geography helpers for Gulu City, Northern Uganda (no network calls).
+ * Live Google search, place names and routes live in maps.ts.
  */
 
-import { nameScore, nearestRow, searchRows, type GuluRow } from "./gulu-search";
-
-/** Mapbox public (publishable) token — safe to ship in the browser. */
-export const MAPBOX_TOKEN =
-  "pk.eyJ1Ijoic2FmZXJpZGVndWx1MDEiLCJhIjoiY21yenpnYmFxMGVqOTJ5cGM0OG1hd3NkMyJ9.ed2-Re0-kGSMqL9xgzBeyg";
+import { nameScore } from "./gulu-search";
 
 export type LngLat = [number, number];
 
@@ -95,224 +89,55 @@ export const formatDistance = (m: number) => (m < 950 ? `${Math.max(50, Math.rou
 export const formatMinutes = (s: number) => `${Math.max(1, Math.round(s / 60))} min`;
 
 /* ------------------------------------------------------------------ */
-/* Search                                                              */
+/* Search results                                                      */
 /* ------------------------------------------------------------------ */
-
-const clean = (parts: (string | undefined | null)[], exclude: string) => {
-  const seen = new Set<string>([exclude.toLowerCase()]);
-  return parts
-    .filter((p): p is string => !!p && p.trim().length > 0)
-    .filter((p) => {
-      const k = p.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    })
-    .join(", ");
-};
-
-interface PhotonProps {
-  osm_id?: number;
-  osm_type?: string;
-  osm_key?: string;
-  osm_value?: string;
-  type?: string;
-  name?: string;
-  street?: string;
-  housenumber?: string;
-  district?: string;
-  locality?: string;
-  city?: string;
-  county?: string;
-  state?: string;
-  country?: string;
-}
-interface PhotonFeature {
-  geometry: { coordinates: LngLat };
-  properties: PhotonProps;
-}
-
-function photonKind(p: PhotonProps): PlaceKind {
-  if (p.osm_key === "highway" || p.type === "street") return "road";
-  if (p.type === "city") return "city";
-  if (p.osm_key === "place" || p.type === "district" || p.type === "locality" || p.type === "county") return "area";
-  if (!p.name && p.housenumber) return "address";
-  return "poi";
-}
-
-function fromPhoton(f: PhotonFeature): Place | null {
-  const p = f.properties;
-  const [lng, lat] = f.geometry.coordinates;
-  const name = p.name ?? (p.street ? [p.housenumber, p.street].filter(Boolean).join(" ") : null);
-  if (!name) return null;
-  return {
-    id: `osm-${p.osm_type ?? ""}${p.osm_id ?? `${lng},${lat}`}`,
-    short: name,
-    name,
-    area: clean([p.street, p.district ?? p.locality, p.city ?? p.county, p.city ? null : p.state, p.country === "Uganda" ? null : p.country], name),
-    lng,
-    lat,
-    kind: photonKind(p),
-  };
-}
-
-interface MapboxSearchFeature {
-  geometry: { coordinates: LngLat };
-  properties: {
-    mapbox_id: string;
-    name: string;
-    feature_type: string;
-    place_formatted?: string;
-    full_address?: string;
-  };
-}
-
-function mapboxKind(t: string): PlaceKind {
-  if (t === "street") return "road";
-  if (t === "address") return "address";
-  if (t === "poi") return "poi";
-  if (t === "place" || t === "city") return "city";
-  return "area";
-}
-
-function fromMapbox(f: MapboxSearchFeature): Place {
-  const [lng, lat] = f.geometry.coordinates;
-  const p = f.properties;
-  return {
-    id: `mbx-${p.mapbox_id}`,
-    short: p.name,
-    name: p.name,
-    area: clean([p.place_formatted ?? p.full_address], p.name),
-    lng,
-    lat,
-    kind: mapboxKind(p.feature_type),
-  };
-}
-
-async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, signal ? { signal } : {});
-  if (!res.ok) throw new Error(`Search request failed [${res.status}]`);
-  return (await res.json()) as T;
-}
-
-const qs = (o: Record<string, string | number | undefined>) =>
-  Object.entries(o)
-    .filter(([, v]) => v !== undefined && v !== "")
-    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
-    .join("&");
-
-const bboxParam = GULU_BBOX.join(",");
-
-async function searchMapbox(q: string, near: LngLat, signal?: AbortSignal) {
-  const url = `https://api.mapbox.com/search/searchbox/v1/forward?${qs({
-    q,
-    proximity: `${near[0]},${near[1]}`,
-    bbox: bboxParam,
-    country: "ug",
-    language: "en",
-    limit: 10,
-    auto_complete: "true",
-    access_token: MAPBOX_TOKEN,
-  })}`;
-  const data = await getJson<{ features?: MapboxSearchFeature[] }>(url, signal);
-  return (data.features ?? [])
-    .filter((f) => !["region", "country", "category", "brand"].includes(f.properties.feature_type))
-    .map(fromMapbox);
-}
-
-async function searchOsm(q: string, near: LngLat, signal?: AbortSignal) {
-  const url = `https://photon.komoot.io/api/?${qs({ q, lat: near[1], lon: near[0], bbox: bboxParam, limit: 20, lang: "en" })}`;
-  const data = await getJson<{ features?: PhotonFeature[] }>(url, signal);
-  return (data.features ?? []).map(fromPhoton).filter((p): p is Place => p !== null);
-}
-
-let guluRows: Promise<GuluRow[]> | null = null;
-/** Every named place in Gulu, loaded once on first search. */
-export function loadGulu(): Promise<GuluRow[]> {
-  guluRows ??= import("./gulu-places.json")
-    .then((m) => m.default as unknown as GuluRow[])
-    .catch((e: unknown) => {
-      guluRows = null;
-      throw e;
-    });
-  return guluRows;
-}
-
-/** Instant search over the built-in Gulu place list (works offline). */
-export async function searchLocal(q: string, near: LngLat = GULU): Promise<Place[]> {
-  return searchRows(await loadGulu(), q, near);
-}
 
 /** Merge results from several sources: Gulu only, no duplicates, best name matches first, then nearest. */
 export function rankPlaces(places: Place[], q: string, near: LngLat, limit = 25) {
   const out: Place[] = [];
   for (const p of places) {
     if (!inGulu(lngLat(p))) continue;
-    const dup = out.some(
-      (o) =>
-        (o.name.toLowerCase() === p.name.toLowerCase() || o.area.toLowerCase().startsWith(`${p.name.toLowerCase()} ·`)) &&
-        distanceM(lngLat(o), lngLat(p)) < (o.kind === "road" || p.kind === "road" ? 15000 : 400),
-    );
+    const a = p.name.toLowerCase();
+    const dup = out.some((o) => {
+      const b = o.name.toLowerCase();
+      const d = distanceM(lngLat(o), lngLat(p));
+      if (o.kind === "road" || p.kind === "road") return (a === b || o.area.toLowerCase().startsWith(`${a} ·`)) && d < 15000;
+      // "Bomah" next to "Bomah Hotel" is the same place.
+      return (a === b || o.area.toLowerCase().startsWith(`${a} ·`) || ((a.includes(b) || b.includes(a)) && Math.min(a.length, b.length) >= 4)) && d < 150;
+    });
     if (!dup) out.push(p);
   }
   return out
-    .map((p) => ({ p, s: nameScore(p.name, q) ?? 9, d: distanceM(near, lngLat(p)) }))
-    .sort((a, b) => a.s - b.s || a.d - b.d)
+    .map((p, i) => ({ p, i, s: nameScore(p.name, q) ?? 9, d: distanceM(near, lngLat(p)) }))
+    .sort((a, b) => a.s - b.s || a.d - b.d || a.i - b.i)
     .slice(0, limit)
     .map((x) => x.p);
 }
 
-/** Live results from Mapbox and OpenStreetMap, limited to Gulu. */
-export async function searchOnline(q: string, near: LngLat = GULU, signal?: AbortSignal): Promise<Place[]> {
-  const query = q.trim();
-  if (query.length < 2) return [];
-  const [mbx, osm] = await Promise.allSettled([searchMapbox(query, near, signal), searchOsm(query, near, signal)]);
-  if (mbx.status === "rejected" && osm.status === "rejected") throw osm.reason;
-  return [...(mbx.status === "fulfilled" ? mbx.value : []), ...(osm.status === "fulfilled" ? osm.value : [])].filter((p) =>
-    inGulu(lngLat(p)),
-  );
+/** Google place types → how the app labels and ranks a result. */
+export function googleKind(types: string[]): PlaceKind {
+  if (types.includes("route")) return "road";
+  if (types.includes("locality")) return "city";
+  if (types.some((t) => t.startsWith("sublocality") || t === "neighborhood" || t === "political")) return "area";
+  if (types.includes("street_address") || types.includes("premise")) return "address";
+  return "poi";
 }
 
-/** Search every place, road, area and village in Gulu. */
-export async function searchPlaces(q: string, near: LngLat = GULU, signal?: AbortSignal): Promise<Place[]> {
-  const [local, online] = await Promise.all([
-    searchLocal(q, near).catch(() => [] as Place[]),
-    searchOnline(q, near, signal).catch(() => [] as Place[]),
-  ]);
-  return rankPlaces([...local, ...online], q, near);
-}
-
-/** Name the spot at a coordinate (landmark, street or area). */
-export async function reverseGeocode(at: LngLat, signal?: AbortSignal): Promise<Place> {
-  const fallback: Place = { id: `pin-${at[0].toFixed(5)},${at[1].toFixed(5)}`, short: "Pinned location", name: "Pinned location", area: "Gulu", lng: at[0], lat: at[1], kind: "pin" };
-  try {
-    const hit = nearestRow(await loadGulu(), at, 45);
-    if (hit) return { ...hit, id: fallback.id, lng: at[0], lat: at[1], kind: "pin" };
-  } catch {
-    /* fall through to the online lookups */
-  }
-  try {
-    const data = await getJson<{ features?: PhotonFeature[] }>(
-      `https://photon.komoot.io/reverse?${qs({ lon: at[0], lat: at[1], lang: "en", limit: 1 })}`,
-      signal,
-    );
-    const f = data.features?.[0];
-    const p = f ? fromPhoton(f) : null;
-    if (p) return { ...p, id: fallback.id, lng: at[0], lat: at[1], kind: "pin" };
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
-  }
-  try {
-    const data = await getJson<{ features?: { properties: { name: string; place_formatted?: string } }[] }>(
-      `https://api.mapbox.com/search/geocode/v6/reverse?${qs({ longitude: at[0], latitude: at[1], language: "en", access_token: MAPBOX_TOKEN })}`,
-      signal,
-    );
-    const f = data.features?.[0];
-    if (f) return { ...fallback, short: f.properties.name, name: f.properties.name, area: f.properties.place_formatted ?? "Gulu" };
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
-  }
-  return fallback;
+export function fromGoogle(g: { id: string; name: string; address: string; type: string; types: string[]; lat: number; lng: number }): Place {
+  const address = g.address
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s && s.toLowerCase() !== g.name.toLowerCase() && s !== "Uganda")
+    .join(", ");
+  return {
+    id: `g-${g.id}`,
+    short: g.name,
+    name: g.name,
+    area: [g.type, address || "Gulu"].filter(Boolean).join(" · "),
+    lng: g.lng,
+    lat: g.lat,
+    kind: googleKind(g.types),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -323,33 +148,31 @@ export interface Route {
   coords: LngLat[];
   distance: number;
   duration: number;
-  /** False when Mapbox could not route and we drew a straight line instead. */
+  /** False when no road route was found and a straight line is drawn instead. */
   real: boolean;
 }
 
-const routeCache = new Map<string, Promise<Route>>();
-
-/** Driving route on real roads from Mapbox Directions. */
-export function getRoute(from: LngLat, to: LngLat): Promise<Route> {
-  const key = `${from[0].toFixed(5)},${from[1].toFixed(5)};${to[0].toFixed(5)},${to[1].toFixed(5)}`;
-  const hit = routeCache.get(key);
-  if (hit) return hit;
-  const straight = (): Route => {
-    const d = distanceM(from, to);
-    return { coords: [from, to], distance: d, duration: d / 8, real: false };
+/** Decode a Google encoded polyline into [lng, lat] pairs. */
+export function decodePolyline(str: string): LngLat[] {
+  const out: LngLat[] = [];
+  let i = 0;
+  let lat = 0;
+  let lng = 0;
+  const next = () => {
+    let result = 0;
+    let shift = 0;
+    let b: number;
+    do {
+      b = str.charCodeAt(i++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20 && i <= str.length);
+    return result & 1 ? ~(result >> 1) : result >> 1;
   };
-  const p = getJson<{ routes?: { distance: number; duration: number; geometry: { coordinates: LngLat[] } }[] }>(
-    `https://api.mapbox.com/directions/v5/mapbox/driving/${key}?${qs({ geometries: "geojson", overview: "full", access_token: MAPBOX_TOKEN })}`,
-  )
-    .then((d) => {
-      const r = d.routes?.[0];
-      if (!r || r.geometry.coordinates.length < 2) return straight();
-      return { coords: r.geometry.coordinates, distance: r.distance, duration: r.duration, real: true };
-    })
-    .catch(() => {
-      routeCache.delete(key);
-      return straight();
-    });
-  routeCache.set(key, p);
-  return p;
+  while (i < str.length) {
+    lat += next();
+    lng += next();
+    out.push([lng / 1e5, lat / 1e5]);
+  }
+  return out;
 }

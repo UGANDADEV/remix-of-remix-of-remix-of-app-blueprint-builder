@@ -71,3 +71,27 @@ describe("Gulu-only search", () => {
     expect(juba?.area).toContain("Nimule - Gulu Road");
   });
 });
+
+describe("google maps data", () => {
+  it("decodes Google's encoded route lines into lng/lat points", async () => {
+    const { decodePolyline } = await import("@/lib/geo");
+    expect(decodePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")).toEqual([
+      [-120.2, 38.5],
+      [-120.95, 40.7],
+      [-126.453, 43.252],
+    ]);
+  });
+
+  it("labels a Google shop by its type and street, and roads as roads", async () => {
+    const { fromGoogle } = await import("@/lib/geo");
+    const aol = fromGoogle({ id: "x", name: "AOL FASHIONS", address: "Queens, Gulu, Uganda", type: "Store", types: ["store"], lat: 2.77239, lng: 32.29888 });
+    expect(aol).toMatchObject({ name: "AOL FASHIONS", area: "Store · Queens, Gulu", kind: "poi" });
+    expect(fromGoogle({ ...aol, id: "y", name: "Juba Rd", address: "Gulu", type: "", types: ["route"], lat: 2.78, lng: 32.29 }).kind).toBe("road");
+  });
+
+  it("puts a Google result ahead of a same-named bundled place nearby", () => {
+    const g = { id: "g-1", short: "KSP Hotel", name: "KSP Hotel", area: "Hotel · Queens", lng: 32.2985, lat: 2.7721 };
+    const local = { ...g, id: "gulu-1", area: "Hotel & rooftop bar", lng: 32.29851, lat: 2.77213 };
+    expect(rankPlaces([g, local], "ksp hotel", GULU).map((p) => p.id)).toEqual(["g-1"]);
+  });
+});

@@ -1,7 +1,8 @@
 import { ArrowLeft, Bookmark, Globe, Map as MapIcon, MapPin, PersonStanding, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PLACES, type Place } from "@/lib/move-data";
-import { formatDistance, distanceM, lngLat, rankPlaces, searchLocal, searchOnline } from "@/lib/geo";
+import { formatDistance, distanceM, lngLat, rankPlaces } from "@/lib/geo";
+import { searchLocal, searchOnline } from "@/lib/maps";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -50,7 +51,6 @@ export function SearchRoute({
     setLoading(true);
     setFailed(false);
     const near = lngLat(pickup);
-    const ctrl = new AbortController();
     let local: Place[] = [];
     let live = true;
     // 1) Built-in Gulu list: instant, works offline.
@@ -64,13 +64,13 @@ export function SearchRoute({
         })
         .catch(() => undefined);
     }, 120);
-    // 2) Live Mapbox + OpenStreetMap for anything newer, merged in.
+    // 2) Every Google place in Gulu, merged in (Google results win ties).
     const t2 = setTimeout(() => {
       setMore(true);
-      searchOnline(query, near, ctrl.signal)
-        .then((online) => live && setResults(rankPlaces([...local, ...online], query, near)))
-        .catch((e: Error) => {
-          if (e.name === "AbortError" || !live) return;
+      searchOnline(query, near)
+        .then((online) => live && setResults(rankPlaces([...online, ...local], query, near)))
+        .catch(() => {
+          if (!live) return;
           if (!local.length) setFailed(true);
         })
         .finally(() => {
@@ -83,7 +83,6 @@ export function SearchRoute({
       live = false;
       clearTimeout(t1);
       clearTimeout(t2);
-      ctrl.abort();
     };
   }, [q, pickup.lng, pickup.lat]);
 

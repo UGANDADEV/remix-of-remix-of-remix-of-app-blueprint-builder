@@ -355,18 +355,7 @@
   animation: pulse-ring 1.8s ease-out infinite;
 }
 
-/* mapbox-gl.css loads after this file and sets .mapboxgl-map { position: relative },
-   which collapses the full-bleed map to 0px tall; keep it pinned to its frame. */
-.move-map.mapboxgl-map {
-  position: absolute;
-  inset: 0;
-}
-
-/* Mapbox controls sit below the phone status bar */
-.move-map .mapboxgl-ctrl-top-left,
-.move-map .mapboxgl-ctrl-top-right {
-  top: 44px;
-}
-.move-map .mapboxgl-ctrl-attrib.mapboxgl-compact {
-  margin: 6px 8px 0 0;
+/* Google draws its own gm-style layers inside .move-map; keep its attribution clear of the frame edge. */
+.move-map .gm-style-cc {
+  opacity: 0.85;
 }

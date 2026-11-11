@@ -61,8 +61,6 @@ for r in out:
 # Well-known local names that the maps don't carry yet (coordinates checked against public listings).
 EXTRA = [
   dict(n="Custom Corner", al=["Customs Corner","Custom Corner Market","Custom Corner Roundabout"], k="area", a="Junction · Juba Road, Layibi", x=32.27854, y=2.76180),
-  dict(n="AOL Fashions", al=["AOL","AOL Fashion","AOL Fashions Gulu"], k="poi", a="Clothes shop · City centre, near Queens Avenue", x=32.29888, y=2.77239),
-  dict(n="KSP Hotel", al=["KSP","KSP Hotel Gulu","KSP Rooftop"], k="poi", a="Hotel & rooftop bar · Queens Avenue, City centre", x=32.29851, y=2.77213),
 ]
 # Common local road names → OSM names
 ALIAS = {"Nimule - Gulu Road":["Juba Road","Gulu - Nimule Road","Nimule Road"],"Gulu - Lira - Kampala Road":["Kampala Road","Lira Road"],

@@ -1,7 +1,8 @@
 import { ArrowLeft, MapPin } from "lucide-react";
 import { forwardRef, useEffect, useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
-import { inGulu, reverseGeocode, type LngLat, type Place } from "@/lib/geo";
+import { inGulu, type LngLat, type Place } from "@/lib/geo";
+import { reverseGeocode } from "@/lib/maps";
 import { SheetHandle } from "./parts";
 
 /** Bottom panel for choosing a dropoff by moving the map under a fixed centre pin. */
@@ -15,15 +16,15 @@ export const PickOnMap = forwardRef<
   useEffect(() => {
     setPlace(null);
     if (!at || !inGulu(at)) return;
-    const ctrl = new AbortController();
+    let live = true;
     const t = setTimeout(() => {
-      reverseGeocode(at, ctrl.signal)
-        .then(setPlace)
+      reverseGeocode(at)
+        .then((p) => live && setPlace(p))
         .catch(() => undefined);
-    }, 250);
+    }, 400);
     return () => {
+      live = false;
       clearTimeout(t);
-      ctrl.abort();
     };
   }, [at?.[0], at?.[1]]);
 
