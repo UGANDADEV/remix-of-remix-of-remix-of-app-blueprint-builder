@@ -37,3 +37,4 @@ use the editor.
 - Fares, vehicles, bus stops and drivers are static data in `src/lib/move-data.ts`; fare math (`tripTotal`, `offerLabel`) is covered by `src/test/fares.test.ts`.
 
 - Full-bleed Mapbox containers get their position from `.move-map.mapboxgl-map` in styles.css, because mapbox-gl.css loads later and forces `position: relative`, collapsing the map to 0px.
+- Place search is Gulu-only: `src/lib/gulu-places.json` (OSM snapshot + hand-checked local names, rebuilt by `scripts/build-gulu-places.py` from Overpass `nwr["name"]` + `node["place"]` exports of the Gulu bbox) answers instantly via `src/lib/gulu-search.ts`, and live Mapbox/Photon results are bbox-limited and filtered by `inGulu`, because Mapbox's index barely covers Gulu.

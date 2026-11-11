@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { VEHICLES, offerLabel, tripTotal } from "@/lib/move-data";
-import { distanceM, rankPlaces, GULU } from "@/lib/geo";
+import { distanceM, inGulu, rankPlaces, GULU } from "@/lib/geo";
+import { searchRows, type GuluRow } from "@/lib/gulu-search";
 import { isValidEmail, isValidPhone } from "@/lib/validation";
 
 describe("fares", () => {
@@ -38,5 +39,35 @@ describe("sign-in validation", () => {
     expect(isValidEmail("nope@")).toBe(false);
     expect(isValidPhone("0803 123 4567")).toBe(true);
     expect(isValidPhone("12345")).toBe(false);
+  });
+});
+
+describe("Gulu-only search", () => {
+  const rows: GuluRow[] = [
+    ["Custom Corner", "Junction · Juba Road, Layibi", "area", 32.27854, 2.7618, ["Customs Corner"]],
+    ["Kanyagoga A", "Village", "area", 32.29, 2.76],
+    ["Gulu Main Market", "Market", "poi", 32.2995, 2.7724],
+  ];
+
+  it("finds Custom Corner when typed 'custom corner', 'customs corner' or with a typo", () => {
+    for (const q of ["custom corner", "Customs Corner", "custm corner", "custom cor"]) {
+      expect(searchRows(rows, q, GULU)[0]?.name).toBe("Custom Corner");
+    }
+  });
+
+  it("drops results outside Gulu", () => {
+    const inside = { id: "a", short: "Market", name: "Market", area: "", lng: 32.3, lat: 2.77 };
+    const kampala = { ...inside, id: "k", lng: 32.58, lat: 0.31 };
+    expect(rankPlaces([kampala, inside], "market", GULU).map((p) => p.id)).toEqual(["a"]);
+  });
+
+  it("the built-in Gulu list has every place inside Gulu and includes Custom Corner", async () => {
+    const all = (await import("@/lib/gulu-places.json")).default as unknown as GuluRow[];
+    expect(all.length).toBeGreaterThan(1000);
+    expect(all.every((r) => inGulu([r[3], r[4]]))).toBe(true);
+    expect(searchRows(all, "custom corner", GULU)[0]?.name).toBe("Custom Corner");
+    const juba = searchRows(all, "juba road", GULU)[0];
+    expect(juba?.name).toBe("Juba Road");
+    expect(juba?.area).toContain("Nimule - Gulu Road");
   });
 });

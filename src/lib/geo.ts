@@ -1,9 +1,11 @@
 /**
  * Real-world geography for Gulu City, Northern Uganda.
- * Map tiles, 3D, routes and part of the search come from Mapbox; OpenStreetMap
- * (via Photon) fills in the many Gulu shops, schools, roads and landmarks
- * that Mapbox's search index does not have yet.
+ * Map tiles, 3D and routes come from Mapbox. Search is Gulu-only: a bundled
+ * snapshot of every named place in Gulu (OpenStreetMap + local names) answers
+ * instantly, then Mapbox and Photon (live OpenStreetMap) add anything newer.
  */
+
+import { nameScore, nearestRow, searchRows, type GuluRow } from "./gulu-search";
 
 /** Mapbox public (publishable) token — safe to ship in the browser. */
 export const MAPBOX_TOKEN =
@@ -12,8 +14,11 @@ export const MAPBOX_TOKEN =
 export type LngLat = [number, number];
 
 export const GULU: LngLat = [32.2995, 2.7724];
-/** Rough bounding box of Gulu City and its suburbs (minLng, minLat, maxLng, maxLat). */
-export const GULU_BBOX: [number, number, number, number] = [32.15, 2.65, 32.45, 2.9];
+/** Gulu City plus the surrounding villages of Gulu District (minLng, minLat, maxLng, maxLat). Search never leaves it. */
+export const GULU_BBOX: [number, number, number, number] = [32.05, 2.55, 32.55, 3.0];
+
+export const inGulu = ([lng, lat]: LngLat) =>
+  lng >= GULU_BBOX[0] && lng <= GULU_BBOX[2] && lat >= GULU_BBOX[1] && lat <= GULU_BBOX[3];
 
 export type PlaceKind = "poi" | "road" | "area" | "address" | "city" | "pin" | "me";
 
@@ -196,13 +201,16 @@ const qs = (o: Record<string, string | number | undefined>) =>
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join("&");
 
+const bboxParam = GULU_BBOX.join(",");
+
 async function searchMapbox(q: string, near: LngLat, signal?: AbortSignal) {
   const url = `https://api.mapbox.com/search/searchbox/v1/forward?${qs({
     q,
     proximity: `${near[0]},${near[1]}`,
+    bbox: bboxParam,
     country: "ug",
     language: "en",
-    limit: 8,
+    limit: 10,
     auto_complete: "true",
     access_token: MAPBOX_TOKEN,
   })}`;
@@ -213,49 +221,76 @@ async function searchMapbox(q: string, near: LngLat, signal?: AbortSignal) {
 }
 
 async function searchOsm(q: string, near: LngLat, signal?: AbortSignal) {
-  const url = `https://photon.komoot.io/api/?${qs({ q, lat: near[1], lon: near[0], limit: 15, lang: "en" })}`;
+  const url = `https://photon.komoot.io/api/?${qs({ q, lat: near[1], lon: near[0], bbox: bboxParam, limit: 20, lang: "en" })}`;
   const data = await getJson<{ features?: PhotonFeature[] }>(url, signal);
   return (data.features ?? []).map(fromPhoton).filter((p): p is Place => p !== null);
 }
 
-function matchScore(name: string, q: string) {
-  const n = name.toLowerCase();
-  const s = q.trim().toLowerCase();
-  if (n === s) return 0;
-  if (n.startsWith(s)) return 1;
-  if (n.split(/[\s,.-]+/).some((w) => w.startsWith(s))) return 2;
-  if (n.includes(s)) return 3;
-  return 4;
+let guluRows: Promise<GuluRow[]> | null = null;
+/** Every named place in Gulu, loaded once on first search. */
+export function loadGulu(): Promise<GuluRow[]> {
+  guluRows ??= import("./gulu-places.json")
+    .then((m) => m.default as unknown as GuluRow[])
+    .catch((e: unknown) => {
+      guluRows = null;
+      throw e;
+    });
+  return guluRows;
 }
 
-/** Merge results from several sources: drop duplicates, prefer good name matches nearby. */
-export function rankPlaces(places: Place[], q: string, near: LngLat, limit = 20) {
+/** Instant search over the built-in Gulu place list (works offline). */
+export async function searchLocal(q: string, near: LngLat = GULU): Promise<Place[]> {
+  return searchRows(await loadGulu(), q, near);
+}
+
+/** Merge results from several sources: Gulu only, no duplicates, best name matches first, then nearest. */
+export function rankPlaces(places: Place[], q: string, near: LngLat, limit = 25) {
   const out: Place[] = [];
   for (const p of places) {
+    if (!inGulu(lngLat(p))) continue;
     const dup = out.some(
-      (o) => o.name.toLowerCase() === p.name.toLowerCase() && distanceM(lngLat(o), lngLat(p)) < 400,
+      (o) =>
+        (o.name.toLowerCase() === p.name.toLowerCase() || o.area.toLowerCase().startsWith(`${p.name.toLowerCase()} ·`)) &&
+        distanceM(lngLat(o), lngLat(p)) < (o.kind === "road" || p.kind === "road" ? 15000 : 400),
     );
     if (!dup) out.push(p);
   }
   return out
-    .map((p) => ({ p, s: matchScore(p.name, q), d: distanceM(near, lngLat(p)) }))
+    .map((p) => ({ p, s: nameScore(p.name, q) ?? 9, d: distanceM(near, lngLat(p)) }))
     .sort((a, b) => a.s - b.s || a.d - b.d)
     .slice(0, limit)
     .map((x) => x.p);
 }
 
-/** Search every place, road, area and address — biased towards `near` (Gulu by default). */
-export async function searchPlaces(q: string, near: LngLat = GULU, signal?: AbortSignal): Promise<Place[]> {
+/** Live results from Mapbox and OpenStreetMap, limited to Gulu. */
+export async function searchOnline(q: string, near: LngLat = GULU, signal?: AbortSignal): Promise<Place[]> {
   const query = q.trim();
   if (query.length < 2) return [];
   const [mbx, osm] = await Promise.allSettled([searchMapbox(query, near, signal), searchOsm(query, near, signal)]);
   if (mbx.status === "rejected" && osm.status === "rejected") throw osm.reason;
-  return rankPlaces([...(mbx.status === "fulfilled" ? mbx.value : []), ...(osm.status === "fulfilled" ? osm.value : [])], query, near);
+  return [...(mbx.status === "fulfilled" ? mbx.value : []), ...(osm.status === "fulfilled" ? osm.value : [])].filter((p) =>
+    inGulu(lngLat(p)),
+  );
 }
 
-/** Name the spot at a coordinate (street, landmark or area). */
+/** Search every place, road, area and village in Gulu. */
+export async function searchPlaces(q: string, near: LngLat = GULU, signal?: AbortSignal): Promise<Place[]> {
+  const [local, online] = await Promise.all([
+    searchLocal(q, near).catch(() => [] as Place[]),
+    searchOnline(q, near, signal).catch(() => [] as Place[]),
+  ]);
+  return rankPlaces([...local, ...online], q, near);
+}
+
+/** Name the spot at a coordinate (landmark, street or area). */
 export async function reverseGeocode(at: LngLat, signal?: AbortSignal): Promise<Place> {
   const fallback: Place = { id: `pin-${at[0].toFixed(5)},${at[1].toFixed(5)}`, short: "Pinned location", name: "Pinned location", area: "Gulu", lng: at[0], lat: at[1], kind: "pin" };
+  try {
+    const hit = nearestRow(await loadGulu(), at, 45);
+    if (hit) return { ...hit, id: fallback.id, lng: at[0], lat: at[1], kind: "pin" };
+  } catch {
+    /* fall through to the online lookups */
+  }
   try {
     const data = await getJson<{ features?: PhotonFeature[] }>(
       `https://photon.komoot.io/reverse?${qs({ lon: at[0], lat: at[1], lang: "en", limit: 1 })}`,
@@ -273,7 +308,7 @@ export async function reverseGeocode(at: LngLat, signal?: AbortSignal): Promise<
       signal,
     );
     const f = data.features?.[0];
-    if (f) return { ...fallback, short: f.properties.name, name: f.properties.name, area: f.properties.place_formatted ?? "Uganda" };
+    if (f) return { ...fallback, short: f.properties.name, name: f.properties.name, area: f.properties.place_formatted ?? "Gulu" };
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
   }

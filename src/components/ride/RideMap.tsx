@@ -33,7 +33,7 @@ interface Props {
   onTripEnd?: () => void;
   onPickupClick?: () => void;
   /** "pick" mode: the coordinate under the centre pin after the map stops moving. */
-  onCenter?: (at: LngLat) => void;
+  onCenter?: ((at: LngLat) => void) | undefined;
 }
 
 const Ctx = createContext<{ map: MbMap; lib: MapLib } | null>(null);

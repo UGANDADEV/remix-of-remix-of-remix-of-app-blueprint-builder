@@ -1,7 +1,7 @@
 import { ArrowLeft, Bookmark, Globe, Map as MapIcon, MapPin, PersonStanding, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PLACES, type Place } from "@/lib/move-data";
-import { formatDistance, distanceM, lngLat, searchPlaces } from "@/lib/geo";
+import { formatDistance, distanceM, lngLat, rankPlaces, searchLocal, searchOnline } from "@/lib/geo";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -18,16 +18,20 @@ export function SearchRoute({
   showAll,
   onBack,
   onPick,
+  onPickOnMap,
 }: {
   pickup: Place;
   showAll?: boolean;
   onBack: () => void;
   onPick: (p: Place) => void;
+  /** Open the map to drop a pin; `hint` is what the user typed, if anything. */
+  onPickOnMap: (hint?: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Place[]>([]);
   const [failed, setFailed] = useState(false);
+  const [more, setMore] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,28 +41,48 @@ export function SearchRoute({
   }, []);
 
   useEffect(() => {
-    if (!q.trim()) {
+    const query = q.trim();
+    if (!query) {
       setLoading(false);
+      setMore(false);
       return;
     }
     setLoading(true);
     setFailed(false);
+    const near = lngLat(pickup);
     const ctrl = new AbortController();
-    const t = setTimeout(() => {
-      searchPlaces(q, lngLat(pickup), ctrl.signal)
+    let local: Place[] = [];
+    let live = true;
+    // 1) Built-in Gulu list: instant, works offline.
+    const t1 = setTimeout(() => {
+      searchLocal(query, near)
         .then((r) => {
+          if (!live) return;
+          local = r;
           setResults(r);
-          setLoading(false);
+          if (r.length) setLoading(false);
         })
+        .catch(() => undefined);
+    }, 120);
+    // 2) Live Mapbox + OpenStreetMap for anything newer, merged in.
+    const t2 = setTimeout(() => {
+      setMore(true);
+      searchOnline(query, near, ctrl.signal)
+        .then((online) => live && setResults(rankPlaces([...local, ...online], query, near)))
         .catch((e: Error) => {
-          if (e.name === "AbortError") return;
-          setResults([]);
-          setFailed(true);
+          if (e.name === "AbortError" || !live) return;
+          if (!local.length) setFailed(true);
+        })
+        .finally(() => {
+          if (!live) return;
           setLoading(false);
+          setMore(false);
         });
-    }, 350);
+    }, 450);
     return () => {
-      clearTimeout(t);
+      live = false;
+      clearTimeout(t1);
+      clearTimeout(t2);
       ctrl.abort();
     };
   }, [q, pickup.lng, pickup.lat]);
@@ -124,7 +148,7 @@ export function SearchRoute({
             <ul className="mt-2">
               {OPTIONS.map(({ id, label, Icon }) => (
                 <li key={id}>
-                  <button onClick={() => setSoon(id)} className="flex w-full items-center gap-3 py-2.5 text-left text-[13px]">
+                  <button onClick={() => (id === "map" ? onPickOnMap() : setSoon(id))} className="flex w-full items-center gap-3 py-2.5 text-left text-[13px]">
                     <span className="flex size-7 items-center justify-center rounded-full bg-muted">
                       <Icon className="size-3.5 fill-foreground" />
                     </span>
@@ -151,7 +175,7 @@ export function SearchRoute({
               {CHIPS.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setSoon(c)}
+                  onClick={() => (c === "Map" ? onPickOnMap(q.trim()) : setSoon(c))}
                   className={cn(
                     "shrink-0 rounded-full bg-muted px-3 py-1.5 text-[11px] transition-colors",
                     soon === c && "bg-ink text-ink-foreground",
@@ -161,7 +185,7 @@ export function SearchRoute({
                 </button>
               ))}
             </div>
-            {loading ? (
+            {loading && !results.length ? (
               <div className="mt-5 space-y-2.5">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="h-6 rounded skeleton-shimmer" />
@@ -173,8 +197,23 @@ export function SearchRoute({
               <p className="mt-5 text-xs text-muted-foreground">Search isn't available right now. Check your connection and try again.</p>
             ) : (
               <p className="mt-5 text-xs text-muted-foreground">
-                {q.trim().length < 2 ? "Keep typing…" : `No places match "${q.trim()}".`}
+                {q.trim().length < 2 ? "Keep typing…" : `No places in Gulu match "${q.trim()}".`}
               </p>
+            )}
+            {more && results.length > 0 && <p className="py-2 text-center text-[11px] text-muted-foreground">Searching more places in Gulu…</p>}
+            {q.trim().length >= 2 && !(loading && !results.length) && (
+              <button
+                onClick={() => onPickOnMap(q.trim())}
+                className="mt-2 flex w-full items-center gap-3 rounded-xl bg-muted px-3 py-3 text-left"
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-card">
+                  <MapIcon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">Can't find it? Set it on the map</span>
+                  <span className="block text-[11px] text-muted-foreground">Drop a pin anywhere in Gulu</span>
+                </span>
+              </button>
             )}
           </>
         )}

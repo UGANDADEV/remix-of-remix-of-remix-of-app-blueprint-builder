@@ -9,6 +9,8 @@ import { HomeSheet, HomeSheetSkeleton } from "@/components/ride/HomeSheet";
 import { RideMap, type MapMode } from "@/components/ride/RideMap";
 import { RoutePill } from "@/components/ride/parts";
 import { SearchRoute } from "@/components/ride/SearchRoute";
+import { PickOnMap } from "@/components/ride/PickOnMap";
+import { lngLat, type LngLat } from "@/lib/geo";
 import { driverById, tripTotal, type NearbyDeal, type Place } from "@/lib/move-data";
 import mapboxCss from "mapbox-gl/dist/mapbox-gl.css?url";
 import { addHistory, resetRide, updateRide, useMove } from "@/lib/move-store";
@@ -30,6 +32,10 @@ function Home() {
   const [expanded, setExpanded] = useState(true);
   const [search, setSearch] = useState<null | { all: boolean }>(null);
   const [tripDetails, setTripDetails] = useState(false);
+  const [picking, setPicking] = useState<null | { hint?: string | undefined }>(null);
+  const [pinAt, setPinAt] = useState<LngLat | null>(null);
+  const pickRef = useRef<HTMLDivElement>(null);
+  const [pickH, setPickH] = useState(240);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [rootH, setRootH] = useState(800);
@@ -44,17 +50,20 @@ function Home() {
     const ro = new ResizeObserver(() => {
       if (rootRef.current) setRootH(rootRef.current.clientHeight);
       if (panelRef.current) setPanelH(panelRef.current.clientHeight);
+      if (pickRef.current) setPickH(pickRef.current.clientHeight);
     });
     if (rootRef.current) ro.observe(rootRef.current);
     if (panelRef.current) ro.observe(panelRef.current);
+    if (pickRef.current) ro.observe(pickRef.current);
     return () => ro.disconnect();
-  }, [ride.stage]);
+  }, [ride.stage, picking]);
 
   const pickup = ride.pickup;
   const dropoff = ride.dropoff;
 
   const pick = (p: Place) => {
     setSearch(null);
+    setPicking(null);
     updateRide({ dropoff: p, stage: "choose", vehicle: "bus", price: 300, recommended: 300, seats: 1 });
   };
   const deal = (d: NearbyDeal) =>
@@ -82,10 +91,13 @@ function Home() {
   };
 
   const stage = ride.stage;
-  const withPanel = stage === "idle" || stage === "tracking";
-  const mapMode: MapMode =
-    stage === "arriving" ? "arriving" : stage === "here" || stage === "started" ? "here" : stage === "tracking" ? "tracking" : "idle";
-  const sheetHeight = withPanel
+  const withPanel = !picking && (stage === "idle" || stage === "tracking");
+  const mapMode: MapMode = picking
+    ? "pick"
+    : stage === "arriving" ? "arriving" : stage === "here" || stage === "started" ? "here" : stage === "tracking" ? "tracking" : "idle";
+  const sheetHeight = picking
+    ? pickH
+    : withPanel
     ? panelH
     : stage === "arriving" || stage === "here" || stage === "started"
       ? rootH - (TOP + 172)
@@ -100,11 +112,13 @@ function Home() {
         sheetHeight={sheetHeight}
         topInset={dropoff && (stage === "started" || stage === "tracking") ? TOP + 56 : TOP}
         arrivingMs={driverById(ride.driverId).eta * 4000 + 4000}
+        pickStart={dropoff ? lngLat(dropoff) : lngLat(pickup)}
+        onCenter={picking ? setPinAt : undefined}
         onPickupClick={() => setSearch({ all: false })}
         onTripEnd={() => updateRide({ stage: "arrived" })}
       />
 
-      {dropoff && (stage === "choose" || stage === "finding" || stage === "started" || stage === "tracking") && (
+      {dropoff && !picking && (stage === "choose" || stage === "finding" || stage === "started" || stage === "tracking") && (
         <RoutePill pickup={pickup} dropoff={dropoff} onEdit={stage === "choose" ? () => setSearch({ all: false }) : undefined} />
       )}
 
@@ -130,7 +144,7 @@ function Home() {
         </div>
       )}
 
-      {stage === "choose" && <ChooseRide ride={ride} onFind={() => updateRide({ stage: "finding" })} />}
+      {stage === "choose" && !picking && <ChooseRide ride={ride} onFind={() => updateRide({ stage: "finding" })} />}
       {stage === "finding" && (
         <FindingDriver ride={ride} onCancel={resetRide} onEdit={() => updateRide({ stage: "choose" })} onAccept={accept} />
       )}
@@ -142,8 +156,30 @@ function Home() {
       )}
       {stage === "arrived" && <Arrived ride={ride} onDone={finish} />}
 
-      {search && (
-        <SearchRoute pickup={ride.pickup} showAll={search.all} onBack={() => setSearch(null)} onPick={pick} />
+      {picking && (
+        <PickOnMap
+          ref={pickRef}
+          at={pinAt}
+          hint={picking.hint}
+          onBack={() => {
+            setPicking(null);
+            setSearch({ all: false });
+          }}
+          onConfirm={pick}
+        />
+      )}
+
+      {search && !picking && (
+        <SearchRoute
+          pickup={ride.pickup}
+          showAll={search.all}
+          onBack={() => setSearch(null)}
+          onPick={pick}
+          onPickOnMap={(hint) => {
+            setPinAt(null);
+            setPicking({ hint: hint || undefined });
+          }}
+        />
       )}
     </div>
   );

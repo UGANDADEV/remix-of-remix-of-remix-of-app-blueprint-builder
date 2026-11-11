@@ -8,6 +8,7 @@
 - [x] User's own Mapbox public token
 
 ## Next
-- [ ] "Search location on map" and "Use my current location" (currently "Coming soon")
+- [x] Gulu-only search with built-in list of every named Gulu place (typo-friendly) + "Set it on the map"
+- [ ] "Use my current location" and the other search shortcuts (still "Coming soon")
 - [ ] Switch fares from Naira (₦) to Ugandan shillings (UGX); rename drivers/plates to Ugandan ones
 - [ ] Real accounts, SMS codes and saved trips (needs Lovable Cloud backend)
