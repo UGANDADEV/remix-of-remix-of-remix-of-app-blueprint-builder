@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, Globe, Map as MapIcon, MapPin, PersonStanding, Search, UserRound, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, ChevronUp, Globe, Map as MapIcon, MapPin, PersonStanding, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PLACES, type Place } from "@/lib/move-data";
 import { formatDistance, distanceM, lngLat, rankPlaces } from "@/lib/geo";
@@ -34,6 +34,7 @@ export function SearchRoute({
   const [failed, setFailed] = useState(false);
   const [more, setMore] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -113,8 +114,20 @@ export function SearchRoute({
   );
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-safe z-30 mt-2 flex flex-col rounded-t-3xl bg-card px-5 pt-3 shadow-sheet animate-sheet-up">
-      <SheetHandle />
+    <div
+      className={cn(
+        "absolute inset-x-0 bottom-0 z-30 mt-2 flex flex-col rounded-t-3xl bg-card px-5 pt-3 shadow-sheet animate-sheet-up transition-[top] duration-300",
+        collapsed ? "top-[52%]" : "top-safe",
+      )}
+    >
+      <button
+        aria-label={collapsed ? "Expand search" : "Pull down to see the map"}
+        onClick={() => setCollapsed((c) => !c)}
+        className="-mt-1 flex w-full flex-col items-center pb-1"
+      >
+        <SheetHandle />
+        {collapsed ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+      </button>
       <div className="relative flex items-center justify-center">
         <button aria-label="Back" onClick={onBack} className="absolute left-0 -ml-1 p-1">
           <ArrowLeft className="size-5" />
