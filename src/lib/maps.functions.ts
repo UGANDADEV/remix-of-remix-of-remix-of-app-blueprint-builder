@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { verifyFirebaseUser } from "./firebase-auth-check";
 
 /**
  * Google Maps Platform calls (Places search, reverse geocoding, driving routes),
@@ -13,6 +14,8 @@ const BOX = { low: { latitude: 2.55, longitude: 32.05 }, high: { latitude: 3.0, 
 
 const lat = z.number().min(2.55).max(3.0);
 const lng = z.number().min(32.05).max(32.55);
+/** Every lookup needs a signed-in app user, so the paid Google APIs can't be used by strangers. */
+const idToken = z.string().min(20).max(5000);
 
 function creds() {
   const lovableKey = process.env["LOVABLE_API_KEY"];
@@ -45,9 +48,10 @@ export interface GPlace {
 /** Text search over every Google place inside Gulu. */
 export const searchGulu = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ query: z.string().trim().min(2).max(80), lat, lng }).parse(input),
+    z.object({ idToken, query: z.string().trim().min(2).max(80), lat, lng }).parse(input),
   )
   .handler(async ({ data }): Promise<{ places: GPlace[]; error?: string }> => {
+    await verifyFirebaseUser(data.idToken);
     const res = await fetch(`${GATEWAY_URL}/places/v1/places:searchText`, {
       method: "POST",
       headers: {
@@ -93,8 +97,9 @@ export const searchGulu = createServerFn({ method: "POST" })
 
 /** Name the street or landmark at a coordinate. */
 export const nameSpot = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ lat, lng }).parse(input))
+  .inputValidator((input: unknown) => z.object({ idToken, lat, lng }).parse(input))
   .handler(async ({ data }): Promise<{ name: string; area: string } | null> => {
+    await verifyFirebaseUser(data.idToken);
     const res = await fetch(`${GATEWAY_URL}/maps/api/geocode/json?latlng=${data.lat},${data.lng}&language=en`, {
       headers: creds(),
     });
@@ -117,30 +122,72 @@ export const nameSpot = createServerFn({ method: "POST" })
     return { name, area: area || "Gulu" };
   });
 
-/** Driving route on real roads (encoded polyline, metres, seconds). */
+export interface RouteStepOut {
+  instruction: string;
+  maneuver: string;
+  distance: number;
+  start: [number, number];
+  end: [number, number];
+}
+
+/** Driving route on real roads (encoded polyline, metres, seconds) with turn-by-turn steps. */
 export const driveRoute = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ from: z.object({ lat, lng }), to: z.object({ lat, lng }) }).parse(input),
+    z.object({ idToken, from: z.object({ lat, lng }), to: z.object({ lat, lng }) }).parse(input),
   )
-  .handler(async ({ data }): Promise<{ polyline: string; distance: number; duration: number } | null> => {
+  .handler(async ({ data }): Promise<{ polyline: string; distance: number; duration: number; steps: RouteStepOut[] } | null> => {
+    await verifyFirebaseUser(data.idToken);
     const point = (p: { lat: number; lng: number }) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
     const res = await fetch(`${GATEWAY_URL}/routes/directions/v2:computeRoutes`, {
       method: "POST",
       headers: {
         ...creds(),
         "Content-Type": "application/json",
-        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
+        "X-Goog-FieldMask":
+          "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.distanceMeters,routes.legs.steps.startLocation,routes.legs.steps.endLocation,routes.legs.steps.navigationInstruction",
       },
-      body: JSON.stringify({ origin: point(data.from), destination: point(data.to), travelMode: "DRIVE" }),
+      body: JSON.stringify({ origin: point(data.from), destination: point(data.to), travelMode: "DRIVE", languageCode: "en", units: "METRIC" }),
     });
     if (!res.ok) {
       await readError(res);
       return null;
     }
-    const json = (await res.json()) as { routes?: { distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }[] };
+    type Loc = { latLng?: { latitude?: number; longitude?: number } };
+    const json = (await res.json()) as {
+      routes?: {
+        distanceMeters?: number;
+        duration?: string;
+        polyline?: { encodedPolyline?: string };
+        legs?: {
+          steps?: {
+            distanceMeters?: number;
+            startLocation?: Loc;
+            endLocation?: Loc;
+            navigationInstruction?: { maneuver?: string; instructions?: string };
+          }[];
+        }[];
+      }[];
+    };
     const r = json.routes?.[0];
     const poly = r?.polyline?.encodedPolyline;
     const secs = r?.duration ? Number.parseFloat(r.duration) : Number.NaN;
     if (!r || !poly || !Number.isFinite(secs)) return null;
-    return { polyline: poly, distance: r.distanceMeters ?? 0, duration: secs };
+    const ll = (l?: Loc): [number, number] | null =>
+      typeof l?.latLng?.latitude === "number" && typeof l.latLng.longitude === "number" ? [l.latLng.longitude, l.latLng.latitude] : null;
+    const steps: RouteStepOut[] = [];
+    for (const leg of r.legs ?? []) {
+      for (const st of leg.steps ?? []) {
+        const start = ll(st.startLocation);
+        const end = ll(st.endLocation);
+        if (!start || !end) continue;
+        steps.push({
+          instruction: st.navigationInstruction?.instructions ?? "",
+          maneuver: st.navigationInstruction?.maneuver ?? "",
+          distance: st.distanceMeters ?? 0,
+          start,
+          end,
+        });
+      }
+    }
+    return { polyline: poly, distance: r.distanceMeters ?? 0, duration: secs, steps };
   });
