@@ -10,33 +10,206 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AllSetRouteImport } from './routes/all-set'
+import { Route as EmailRouteImport } from './routes/email'
+import { Route as EnableLocationRouteImport } from './routes/enable-location'
+import { Route as EnableNotificationsRouteImport } from './routes/enable-notifications'
+import { Route as GetStartedRouteImport } from './routes/get-started'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as NameRouteImport } from './routes/name'
+import { Route as ProfilePhotoRouteImport } from './routes/profile-photo'
+import { Route as RidesRouteImport } from './routes/rides'
+import { Route as RoleRouteImport } from './routes/role'
+import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AllSetRoute = AllSetRouteImport.update({
+  id: '/all-set',
+  path: '/all-set',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnableLocationRoute = EnableLocationRouteImport.update({
+  id: '/enable-location',
+  path: '/enable-location',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnableNotificationsRoute = EnableNotificationsRouteImport.update({
+  id: '/enable-notifications',
+  path: '/enable-notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GetStartedRoute = GetStartedRouteImport.update({
+  id: '/get-started',
+  path: '/get-started',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NameRoute = NameRouteImport.update({
+  id: '/name',
+  path: '/name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfilePhotoRoute = ProfilePhotoRouteImport.update({
+  id: '/profile-photo',
+  path: '/profile-photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RidesRoute = RidesRouteImport.update({
+  id: '/rides',
+  path: '/rides',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoleRoute = RoleRouteImport.update({
+  id: '/role',
+  path: '/role',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyRoute = VerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
+  '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
+  '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
+  '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
+  '/role': typeof RoleRoute
+  '/verify': typeof VerifyRoute
+  '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
+  '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
+  '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
+  '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
+  '/role': typeof RoleRoute
+  '/verify': typeof VerifyRoute
+  '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/all-set': typeof AllSetRoute
+  '/email': typeof EmailRoute
+  '/enable-location': typeof EnableLocationRoute
+  '/enable-notifications': typeof EnableNotificationsRoute
+  '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
+  '/name': typeof NameRoute
+  '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
+  '/role': typeof RoleRoute
+  '/verify': typeof VerifyRoute
+  '/welcome': typeof WelcomeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/all-set'
+    | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
+    | '/get-started'
+    | '/home'
+    | '/me'
+    | '/name'
+    | '/profile-photo'
+    | '/rides'
+    | '/role'
+    | '/verify'
+    | '/welcome'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/all-set'
+    | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
+    | '/get-started'
+    | '/home'
+    | '/me'
+    | '/name'
+    | '/profile-photo'
+    | '/rides'
+    | '/role'
+    | '/verify'
+    | '/welcome'
+  id:
+    | '__root__'
+    | '/'
+    | '/all-set'
+    | '/email'
+    | '/enable-location'
+    | '/enable-notifications'
+    | '/get-started'
+    | '/home'
+    | '/me'
+    | '/name'
+    | '/profile-photo'
+    | '/rides'
+    | '/role'
+    | '/verify'
+    | '/welcome'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AllSetRoute: typeof AllSetRoute
+  EmailRoute: typeof EmailRoute
+  EnableLocationRoute: typeof EnableLocationRoute
+  EnableNotificationsRoute: typeof EnableNotificationsRoute
+  GetStartedRoute: typeof GetStartedRoute
+  HomeRoute: typeof HomeRoute
+  MeRoute: typeof MeRoute
+  NameRoute: typeof NameRoute
+  ProfilePhotoRoute: typeof ProfilePhotoRoute
+  RidesRoute: typeof RidesRoute
+  RoleRoute: typeof RoleRoute
+  VerifyRoute: typeof VerifyRoute
+  WelcomeRoute: typeof WelcomeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +221,115 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/all-set': {
+      id: '/all-set'
+      path: '/all-set'
+      fullPath: '/all-set'
+      preLoaderRoute: typeof AllSetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enable-location': {
+      id: '/enable-location'
+      path: '/enable-location'
+      fullPath: '/enable-location'
+      preLoaderRoute: typeof EnableLocationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enable-notifications': {
+      id: '/enable-notifications'
+      path: '/enable-notifications'
+      fullPath: '/enable-notifications'
+      preLoaderRoute: typeof EnableNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/get-started': {
+      id: '/get-started'
+      path: '/get-started'
+      fullPath: '/get-started'
+      preLoaderRoute: typeof GetStartedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/name': {
+      id: '/name'
+      path: '/name'
+      fullPath: '/name'
+      preLoaderRoute: typeof NameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile-photo': {
+      id: '/profile-photo'
+      path: '/profile-photo'
+      fullPath: '/profile-photo'
+      preLoaderRoute: typeof ProfilePhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rides': {
+      id: '/rides'
+      path: '/rides'
+      fullPath: '/rides'
+      preLoaderRoute: typeof RidesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/role': {
+      id: '/role'
+      path: '/role'
+      fullPath: '/role'
+      preLoaderRoute: typeof RoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify': {
+      id: '/verify'
+      path: '/verify'
+      fullPath: '/verify'
+      preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AllSetRoute: AllSetRoute,
+  EmailRoute: EmailRoute,
+  EnableLocationRoute: EnableLocationRoute,
+  EnableNotificationsRoute: EnableNotificationsRoute,
+  GetStartedRoute: GetStartedRoute,
+  HomeRoute: HomeRoute,
+  MeRoute: MeRoute,
+  NameRoute: NameRoute,
+  ProfilePhotoRoute: ProfilePhotoRoute,
+  RidesRoute: RidesRoute,
+  RoleRoute: RoleRoute,
+  VerifyRoute: VerifyRoute,
+  WelcomeRoute: WelcomeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
