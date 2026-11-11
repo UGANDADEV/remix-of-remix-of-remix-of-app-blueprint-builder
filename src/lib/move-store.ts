@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { VehicleId } from "./move-data";
+import { PICKUPS, type VehicleId } from "./move-data";
+import type { Place } from "./geo";
 
 export type Role = "passenger" | "driver";
 
@@ -23,8 +24,10 @@ export type RideStage =
 
 export interface Ride {
   stage: RideStage;
-  pickupId: string;
-  dropoffId: string | null;
+  pickup: Place;
+  dropoff: Place | null;
+  /** Real road distance (m) and driving time (s) once the route is known. */
+  trip: { distance: number; duration: number } | null;
   vehicle: VehicleId;
   seats: number;
   price: number;
@@ -37,8 +40,8 @@ export interface Ride {
 export interface PastRide {
   id: string;
   date: string;
-  pickupId: string;
-  dropoffId: string;
+  pickup: Place;
+  dropoff: Place;
   driverId: string;
   vehicle: VehicleId;
   seats: number;
@@ -54,12 +57,13 @@ interface State {
   permissions: { location: boolean; notifications: boolean };
 }
 
-const KEY = "move-naija:v1";
+const KEY = "move-naija:v2";
 
-export const emptyRide = (pickupId = "garrison"): Ride => ({
+export const emptyRide = (pickup: Place = PICKUPS[0]!): Ride => ({
   stage: "idle",
-  pickupId,
-  dropoffId: null,
+  pickup,
+  dropoff: null,
+  trip: null,
   vehicle: "bus",
   seats: 1,
   price: 300,
@@ -85,7 +89,12 @@ function load() {
   loaded = true;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) state = { ...initial, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<State>;
+      state = { ...initial, ...saved };
+      // Older saves without real coordinates start a fresh ride.
+      if (!state.ride?.pickup || typeof state.ride.pickup.lng !== "number") state = { ...state, ride: emptyRide() };
+    }
   } catch {
     /* ignore corrupt storage */
   }
@@ -117,7 +126,7 @@ export const updateUser = (patch: Partial<User>) =>
 export const updateRide = (patch: Partial<Ride>) =>
   setState((s) => ({ ...s, ride: { ...s.ride, ...patch } }));
 
-export const resetRide = () => setState((s) => ({ ...s, ride: emptyRide(s.ride.pickupId) }));
+export const resetRide = () => setState((s) => ({ ...s, ride: emptyRide(s.ride.pickup) }));
 
 export const addHistory = (r: PastRide) =>
   setState((s) => ({ ...s, history: [r, ...s.history] }));
