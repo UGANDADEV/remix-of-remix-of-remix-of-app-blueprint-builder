@@ -1,6 +1,7 @@
 import { ArrowLeft, Bookmark, Globe, Map as MapIcon, MapPin, PersonStanding, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { PLACES, placeById, searchPlaces, type Place } from "@/lib/move-data";
+import { PLACES, type Place } from "@/lib/move-data";
+import { formatDistance, distanceM, lngLat, searchPlaces } from "@/lib/geo";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -13,20 +14,20 @@ const OPTIONS = [
 const CHIPS = ["Saved", "Map", "Another City", "For Someone"];
 
 export function SearchRoute({
-  pickupId,
+  pickup,
   showAll,
   onBack,
   onPick,
 }: {
-  pickupId: string;
+  pickup: Place;
   showAll?: boolean;
   onBack: () => void;
   onPick: (p: Place) => void;
 }) {
-  const pickup = placeById(pickupId);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Place[]>([]);
+  const [failed, setFailed] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,12 +42,26 @@ export function SearchRoute({
       return;
     }
     setLoading(true);
+    setFailed(false);
+    const ctrl = new AbortController();
     const t = setTimeout(() => {
-      setResults(searchPlaces(q));
-      setLoading(false);
-    }, 550);
-    return () => clearTimeout(t);
-  }, [q]);
+      searchPlaces(q, lngLat(pickup), ctrl.signal)
+        .then((r) => {
+          setResults(r);
+          setLoading(false);
+        })
+        .catch((e: Error) => {
+          if (e.name === "AbortError") return;
+          setResults([]);
+          setFailed(true);
+          setLoading(false);
+        });
+    }, 350);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q, pickup.lng, pickup.lat]);
 
   useEffect(() => {
     if (!soon) return;
@@ -64,7 +79,9 @@ export function SearchRoute({
             </span>
             <span className="min-w-0 flex-1 border-b border-border pb-3">
               <span className="block text-sm font-medium">{p.name}</span>
-              <span className="block text-[11px] text-muted-foreground">{p.area}</span>
+              <span className="block text-[11px] text-muted-foreground">
+                {[p.area, formatDistance(distanceM(lngLat(pickup), lngLat(p)))].filter(Boolean).join(" · ")}
+              </span>
             </span>
           </button>
         </li>
@@ -123,7 +140,7 @@ export function SearchRoute({
             </ul>
             {showAll && (
               <>
-                <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">All bus stops</h3>
+                <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Popular places in Gulu</h3>
                 {list(PLACES)}
               </>
             )}
@@ -152,8 +169,12 @@ export function SearchRoute({
               </div>
             ) : results.length ? (
               list(results)
+            ) : failed ? (
+              <p className="mt-5 text-xs text-muted-foreground">Search isn't available right now. Check your connection and try again.</p>
             ) : (
-              <p className="mt-5 text-xs text-muted-foreground">No bus stops match "{q.trim()}".</p>
+              <p className="mt-5 text-xs text-muted-foreground">
+                {q.trim().length < 2 ? "Keep typing…" : `No places match "${q.trim()}".`}
+              </p>
             )}
           </>
         )}

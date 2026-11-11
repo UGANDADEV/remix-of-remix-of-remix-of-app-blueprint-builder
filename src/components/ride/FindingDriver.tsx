@@ -2,7 +2,7 @@ import { Pencil, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
 import { Switch } from "@/components/ui/switch";
-import { DRIVERS, naira, offerLabel, placeById, tripTotal, vehicleById, type Driver } from "@/lib/move-data";
+import { DRIVERS, naira, offerLabel, tripTotal, vehicleById, type Driver } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
@@ -32,8 +32,8 @@ export function FindingDriver({
   onAccept: (driverId: string, price: number) => void;
 }) {
   const vehicle = vehicleById(ride.vehicle);
-  const pickup = placeById(ride.pickupId);
-  const dropoff = placeById(ride.dropoffId ?? "slaughter");
+  const pickup = ride.pickup;
+  const dropoff = ride.dropoff ?? ride.pickup;
   const [draft, setDraft] = useState(ride.price);
   const [seconds, setSeconds] = useState(59);
   const [round, setRound] = useState(0);

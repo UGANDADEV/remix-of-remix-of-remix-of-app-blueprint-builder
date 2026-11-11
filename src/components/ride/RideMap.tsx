@@ -427,7 +427,7 @@ export function RideMap({
     setStyleKey(next);
     ctx?.map.setStyle(STYLES[next], {
       config: { basemap: { lightPreset: "day", show3dObjects: is3d } },
-    } as Parameters<MbMap["setStyle"]>[1]);
+    } as unknown as Parameters<MbMap["setStyle"]>[1]);
   };
 
   const pickupAt = lngLat(pickup);

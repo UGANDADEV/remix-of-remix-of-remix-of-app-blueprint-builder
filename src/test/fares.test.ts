@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { VEHICLES, offerLabel, searchPlaces, tripTotal } from "@/lib/move-data";
+import { VEHICLES, offerLabel, tripTotal } from "@/lib/move-data";
+import { distanceM, rankPlaces, GULU } from "@/lib/geo";
 import { isValidEmail, isValidPhone } from "@/lib/validation";
 
 describe("fares", () => {
@@ -24,8 +25,10 @@ describe("fares", () => {
 
 describe("search", () => {
   it("finds Slaughter and reports nothing for gulu", () => {
-    expect(searchPlaces("slaugh")[0]?.id).toBe("slaughter");
-    expect(searchPlaces("gulu")).toEqual([]);
+    const near = { id: "a", short: "Gulu Market", name: "Gulu Market", area: "", lng: GULU[0], lat: GULU[1] };
+    const far = { ...near, id: "b", lng: GULU[0] + 1 };
+    expect(rankPlaces([far, near], "gulu", GULU)[0]?.id).toBe("a");
+    expect(Math.round(distanceM([32.3, 2.77], [32.3, 2.78]) / 10) * 10).toBe(1110);
   });
 });
 

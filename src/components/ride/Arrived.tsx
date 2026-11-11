@@ -1,14 +1,14 @@
 import { MapPin, Star } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
-import { driverById, naira, placeById, tripTotal } from "@/lib/move-data";
+import { driverById, naira, tripTotal } from "@/lib/move-data";
 import type { Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 
 export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number) => void }) {
   const [rating, setRating] = useState(0);
   const driver = driverById(ride.driverId);
-  const dropoff = placeById(ride.dropoffId ?? "slaughter");
+  const dropoff = ride.dropoff ?? ride.pickup;
   const total = tripTotal(ride.price, ride.seats);
 
   return (

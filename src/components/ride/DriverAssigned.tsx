@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomSheet } from "@/components/move/BottomSheet";
-import { driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { driverById, naira, tripTotal, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
 
@@ -34,8 +34,8 @@ export function DriverAssigned({
 }) {
   const driver = driverById(ride.driverId);
   const vehicle = vehicleById(ride.vehicle);
-  const pickup = placeById(ride.pickupId);
-  const dropoff = placeById(ride.dropoffId ?? "slaughter");
+  const pickup = ride.pickup;
+  const dropoff = ride.dropoff ?? ride.pickup;
   const [mins, setMins] = useState(driver.eta);
   const [sheet, setSheet] = useState<null | "safety" | "profile" | "cancel" | "issue" | "shared">(null);
   const [modal, setModal] = useState(ride.stage === "started" && !onClose);
