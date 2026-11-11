@@ -1,24 +1,19 @@
 import { Pencil, UserRound, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AppButton } from "@/components/move/AppButton";
+import { Avatar } from "@/components/move/Avatar";
 import { Switch } from "@/components/ui/switch";
-import { DRIVERS, naira, offerLabel, tripTotal, vehicleById, type Driver } from "@/lib/move-data";
+import { naira, offerLabel, tripTotal, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
+import { clearOffers, listenOffers, patchRide, type Offer } from "@/lib/rides";
+import { useOnlineDrivers } from "@/lib/use-drivers";
 import { cn } from "@/lib/utils";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
 
 const OFFER_LIFE = 25;
-const SCHEDULE = [
-  { at: 3500, driver: 0, extra: 0 },
-  { at: 5500, driver: 1, extra: 0 },
-  { at: 7500, driver: 2, extra: 200 },
-];
 
-interface Offer {
-  id: number;
-  driver: Driver;
-  price: number;
-}
+const offerKey = (o: Offer) => `${o.driverId}-${o.at}`;
 
 export function FindingDriver({
   ride,
@@ -29,17 +24,19 @@ export function FindingDriver({
   ride: Ride;
   onCancel: () => void;
   onEdit: () => void;
-  onAccept: (driverId: string, price: number) => void;
+  onAccept: (offer: Offer) => Promise<void> | void;
 }) {
   const vehicle = vehicleById(ride.vehicle);
   const pickup = ride.pickup;
   const dropoff = ride.dropoff ?? ride.pickup;
   const [draft, setDraft] = useState(ride.price);
   const [seconds, setSeconds] = useState(59);
-  const [round, setRound] = useState(0);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [dismissed, setDismissed] = useState<number[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
   const [auto, setAuto] = useState(false);
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const online = useOnlineDrivers();
+  const matching = useMemo(() => (online ?? []).filter((d) => d.vehicle === ride.vehicle), [online, ride.vehicle]);
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -47,30 +44,48 @@ export function FindingDriver({
     return () => clearTimeout(t);
   }, [seconds]);
 
-  // Drivers respond to the current price; a new offer from the passenger restarts the round.
+  // Real offers from drivers, live.
   useEffect(() => {
-    const timers = SCHEDULE.map((s, i) =>
-      setTimeout(() => {
-        const driver = DRIVERS[s.driver] ?? DRIVERS[0]!;
-        setOffers((o) => [...o.filter((x) => x.driver.id !== driver.id), { id: round * 10 + i, driver, price: ride.price + s.extra }]);
-      }, s.at),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [round, ride.price]);
+    if (!ride.rideId) return;
+    return listenOffers(ride.rideId, setOffers);
+  }, [ride.rideId]);
 
-  const visible = offers.filter((o) => !dismissed.includes(o.id));
+  const visible = offers.filter((o) => !dismissed.includes(offerKey(o))).sort((a, b) => a.at - b.at);
+
+  const take = async (o: Offer) => {
+    if (accepting) return;
+    setAccepting(offerKey(o));
+    try {
+      await onAccept(o);
+    } catch (e) {
+      console.error(e);
+      toast.error("That offer is no longer available.");
+      setDismissed((d) => [...d, offerKey(o)]);
+    } finally {
+      setAccepting(null);
+    }
+  };
+  const takeRef = useRef(take);
+  takeRef.current = take;
 
   useEffect(() => {
     if (!auto) return;
-    const match = visible.find((o) => o.price <= ride.price && o.driver.eta <= 5);
-    if (match) onAccept(match.driver.id, match.price);
-  }, [auto, visible, ride.price, onAccept]);
+    const match = visible.find((o) => o.price <= ride.price && o.eta <= 5);
+    if (match) void takeRef.current(match);
+  }, [auto, visible, ride.price]);
 
-  const changeOffer = () => {
+  const changeOffer = async () => {
     updateRide({ price: draft });
     setOffers([]);
     setSeconds(59);
-    setRound((r) => r + 1);
+    if (!ride.rideId) return;
+    try {
+      await patchRide(ride.rideId, { price: draft });
+      await clearOffers(ride.rideId);
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't update your offer. Check your connection.");
+    }
   };
 
   const great = ride.price >= ride.recommended;
@@ -103,12 +118,12 @@ export function FindingDriver({
             {visible.map((o) => {
               const label = offerLabel(o.price, ride.price);
               return (
-                <div key={o.id} className="overflow-hidden rounded-xl bg-card shadow-[0_0_0_1px_var(--border)] animate-fade-up">
+                <div key={offerKey(o)} className="overflow-hidden rounded-xl bg-card shadow-[0_0_0_1px_var(--border)] animate-fade-up">
                   <div className="h-1 bg-secondary">
                     <div
                       className="h-full bg-ink animate-bar-shrink"
                       style={{ animationDuration: `${OFFER_LIFE}s` }}
-                      onAnimationEnd={() => setDismissed((d) => [...d, o.id])}
+                      onAnimationEnd={() => setDismissed((d) => [...d, offerKey(o)])}
                     />
                   </div>
                   <div className="p-3">
@@ -117,24 +132,24 @@ export function FindingDriver({
                         <p className="text-[15px] font-bold">{naira(o.price)}</p>
                         <p className={cn("text-[11px]", label.tone === "above" ? "text-above" : "text-primary")}>{label.text}</p>
                       </div>
-                      <button aria-label="Decline offer" onClick={() => setDismissed((d) => [...d, o.id])}>
+                      <button aria-label="Decline offer" onClick={() => setDismissed((d) => [...d, offerKey(o)])}>
                         <X className="size-4" />
                       </button>
                     </div>
                     <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <img src={o.driver.photo} alt="" className="size-6 rounded-full object-cover" />
+                      <Avatar src={o.driver.photo} className="size-6 rounded-full" />
                       <span className="font-semibold text-foreground">{o.driver.name}</span>
                       <span className="min-w-0 flex-1 truncate">
-                        ★ {o.driver.rating} ({o.driver.rides} rides) · {o.driver.car}
+                        {o.driver.rating ? `★ ${o.driver.rating} ` : "New driver "}({o.driver.rides} rides) · {o.driver.color} {o.driver.car}
                       </span>
-                      <span>· {o.driver.eta} min</span>
+                      <span>· {o.eta} min</span>
                     </div>
                     <div className="mt-3 flex items-center gap-3">
                       <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1.5 text-[10px]">
-                        <UserRound className="size-3" /> {o.driver.free} of {vehicle.seats} free
+                        <UserRound className="size-3" /> {o.driver.plate}
                       </span>
-                      <AppButton size="md" className="flex-1" onClick={() => onAccept(o.driver.id, o.price)}>
-                        Accept
+                      <AppButton size="md" className="flex-1" disabled={!!accepting} onClick={() => void take(o)}>
+                        {accepting === offerKey(o) ? "Accepting..." : "Accept"}
                       </AppButton>
                     </div>
                   </div>
@@ -160,14 +175,22 @@ export function FindingDriver({
   return (
     <>
       <div className="absolute inset-x-0 top-safe z-10 mt-[62px] flex items-center justify-between rounded-t-3xl bg-card px-4 pb-6 pt-3 text-[12px] animate-fade-up">
-        <span>7 drivers are viewing your request</span>
+        <span>
+          {online === null
+            ? "Sending your request to drivers..."
+            : matching.length === 0
+              ? `No ${vehicle.name.toLowerCase()} drivers online yet — we'll keep looking`
+              : `${matching.length} ${vehicle.name.toLowerCase()} driver${matching.length === 1 ? "" : "s"} can see your request`}
+        </span>
         <span className="flex -space-x-2">
-          {DRIVERS.map((d) => (
-            <img key={d.id} src={d.photo} alt="" className="size-6 rounded-full object-cover ring-2 ring-card" />
+          {matching.slice(0, 3).map((d) => (
+            <Avatar key={d.id} src={d.photo} className="size-6 rounded-full ring-2 ring-card" />
           ))}
-          <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground ring-2 ring-card">
-            4+
-          </span>
+          {matching.length > 3 && (
+            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground ring-2 ring-card">
+              {matching.length - 3}+
+            </span>
+          )}
         </span>
       </div>
       <div className="absolute inset-x-0 bottom-0 top-safe z-20 mt-[104px] flex flex-col rounded-t-3xl bg-card shadow-sheet animate-sheet-up">
@@ -195,7 +218,7 @@ export function FindingDriver({
             size="md"
             className="mt-3 font-normal"
             disabled={draft === ride.price}
-            onClick={changeOffer}
+            onClick={() => void changeOffer()}
           >
             Change your offer
           </AppButton>
