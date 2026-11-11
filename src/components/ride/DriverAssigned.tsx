@@ -1,18 +1,17 @@
 import { BadgeCheck, ChevronRight, PhoneCall, Share, ShieldCheck, Siren, TriangleAlert, UserRound, CarFront, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import busImg from "@/assets/vehicle-bus.png";
 import { AppButton } from "@/components/move/AppButton";
 import { Avatar } from "@/components/move/Avatar";
 import { BottomSheet } from "@/components/move/BottomSheet";
-import { naira, tripTotal, vehicleById } from "@/lib/move-data";
+import { ugx, vehicleById } from "@/lib/move-data";
 import type { DriverSnap, Ride } from "@/lib/move-store";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
 
-const NO_DRIVER: DriverSnap = { id: "", name: "Your driver", photo: null, phone: "", car: "", color: "", plate: "", vehicle: "bus", rating: null, rides: 0 };
+const NO_DRIVER: DriverSnap = { id: "", name: "Your driver", photo: null, phone: "", car: "", color: "", plate: "", vehicle: "boda", rating: null, rides: 0 };
 
 export function arrivalTime(minutes = 12) {
   const d = new Date(Date.now() + minutes * 60_000);
-  return d.toLocaleTimeString("en-NG", { hour: "numeric", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("en-UG", { hour: "numeric", minute: "2-digit", hour12: false });
 }
 
 const SAFETY = [
@@ -28,8 +27,11 @@ export function DriverAssigned({
   onCancel,
   onTrack,
   onClose,
+  live,
 }: {
   ride: Ride;
+  /** Real remaining time from the driver's live position, when known. */
+  live?: { duration: number; distance: number } | null | undefined;
   onCancel: () => void;
   onTrack: () => void;
   /** Close button when shown as an overlay during a trip. */
@@ -70,7 +72,12 @@ export function DriverAssigned({
     }
   };
 
-  const title = started ? `You'll arrive ${eta}` : ride.stage === "here" ? "Your ride is here" : `Arriving in ${mins} min`;
+  const liveMin = live ? Math.max(1, Math.round(live.duration / 60)) : null;
+  const title = started
+    ? `You'll arrive ${liveMin !== null ? arrivalTime(liveMin) : eta}`
+    : ride.stage === "here"
+      ? "Your ride is here"
+      : `Arriving in ${liveMin ?? mins} min`;
 
   return (
     <>
@@ -90,7 +97,7 @@ export function DriverAssigned({
                   {dropoff.name}, {dropoff.area}
                 </p>
               </div>
-              <img src={busImg} alt="" className="mt-6 h-6 w-auto" />
+              <img src={vehicle.image} alt="" className="mt-6 h-6 w-auto" />
             </div>
           ) : (
             <>
@@ -105,7 +112,7 @@ export function DriverAssigned({
                 </span>
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {ride.seats} of {vehicle.seats} seats booked
+                {vehicle.name} · {ride.seats} passenger{ride.seats > 1 ? "s" : ""}
               </p>
             </>
           )}
@@ -142,7 +149,7 @@ export function DriverAssigned({
             <RouteCard pickup={pickup} dropoff={dropoff} muted action={<ChevronRight className="size-4" />} />
             <div className="flex items-center justify-between rounded-xl bg-muted px-3 py-2.5">
               <PaymentPicker value={ride.payment} />
-              <span className="text-sm font-semibold">{naira(tripTotal(ride.price, ride.seats))}</span>
+              <span className="text-sm font-semibold">{ugx(ride.price)}</span>
             </div>
             <Row icon={<UserRound className="size-4" />} label="View driver's profile" onClick={() => setSheet("profile")} />
             <a href="tel:112" className="flex items-center gap-2 rounded-xl bg-danger-soft px-3 py-3.5 text-[13px] text-destructive">
@@ -169,7 +176,7 @@ export function DriverAssigned({
             <button aria-label="Close" onClick={() => setModal(false)} className="absolute right-4 top-4">
               <X className="size-4" />
             </button>
-            <img src={busImg} alt="" className="mx-auto h-12 w-auto" />
+            <img src={vehicle.image} alt="" className="mx-auto h-12 w-auto" />
             <h3 className="mt-4 text-lg font-bold">Your ride has started</h3>
             <p className="mt-1 text-[13px] text-muted-foreground">
               You're on your way to {dropoff.name} with {firstName}.

@@ -81,7 +81,7 @@ export async function notify(title: string, body: string, tag?: string) {
     return;
   }
   if (!notificationsAllowed()) return;
-  const options: NotificationOptions = { body, tag, icon: "/favicon.ico", badge: "/favicon.ico" };
+  const options: NotificationOptions = { body, icon: "/favicon.ico", badge: "/favicon.ico", ...(tag ? { tag } : {}) };
   try {
     registerNotifier();
     const r = await reg;

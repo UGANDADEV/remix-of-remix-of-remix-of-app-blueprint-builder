@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AppButton } from "@/components/move/AppButton";
 import { Avatar } from "@/components/move/Avatar";
 import { Switch } from "@/components/ui/switch";
-import { naira, offerLabel, tripTotal, vehicleById } from "@/lib/move-data";
+import { FARE_STEP, lowestFare, ugx, offerLabel, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { clearOffers, listenOffers, patchRide, type Offer } from "@/lib/rides";
 import { useOnlineDrivers } from "@/lib/use-drivers";
@@ -92,7 +92,7 @@ export function FindingDriver({
   const autoRow = (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-muted px-3 py-3 text-[12px]">
       <span>
-        Auto-accept an offer of {naira(ride.price)} up to
+        Auto-accept an offer of {ugx(ride.price)} up to
         <br />5 min away
       </span>
       <Switch checked={auto} onCheckedChange={setAuto} aria-label="Auto-accept offers" />
@@ -109,7 +109,7 @@ export function FindingDriver({
           </h2>
           <div className="mt-2 flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
             <span>
-              Auto-accept an offer of {naira(ride.price)} up to
+              Auto-accept an offer of {ugx(ride.price)} up to
               <br />5 min away
             </span>
             <Switch checked={auto} onCheckedChange={setAuto} aria-label="Auto-accept offers" />
@@ -129,7 +129,7 @@ export function FindingDriver({
                   <div className="p-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-[15px] font-bold">{naira(o.price)}</p>
+                        <p className="text-[15px] font-bold">{ugx(o.price)}</p>
                         <p className={cn("text-[11px]", label.tone === "above" ? "text-above" : "text-primary")}>{label.text}</p>
                       </div>
                       <button aria-label="Decline offer" onClick={() => setDismissed((d) => [...d, offerKey(o)])}>
@@ -205,12 +205,12 @@ export function FindingDriver({
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <button onClick={() => setDraft((d) => Math.max(100, d - 100))} className="rounded-full bg-muted px-3 py-1.5 text-[12px]">
-              − ₦100
+            <button onClick={() => setDraft((d) => Math.max(lowestFare(ride.vehicle, ride.recommended), d - FARE_STEP))} className="rounded-full bg-muted px-3 py-1.5 text-[12px]">
+              − 500
             </button>
-            <span className="text-lg font-bold">₦ {draft.toLocaleString("en-NG")}</span>
-            <button onClick={() => setDraft((d) => d + 100)} className="rounded-full bg-muted px-3 py-1.5 text-[12px]">
-              + ₦100
+            <span className="text-lg font-bold">{ugx(draft)}</span>
+            <button onClick={() => setDraft((d) => d + FARE_STEP)} className="rounded-full bg-muted px-3 py-1.5 text-[12px]">
+              + 500
             </button>
           </div>
           <AppButton
@@ -236,11 +236,11 @@ export function FindingDriver({
             />
             <div className="flex items-center justify-between rounded-xl bg-muted px-3 py-2.5">
               <PaymentPicker value={ride.payment} />
-              <span className="text-sm font-semibold">{naira(tripTotal(ride.price, ride.seats))}</span>
+              <span className="text-sm font-semibold">{ugx(ride.price)}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-muted px-3 py-3 text-[12px]">
               <span>
-                Vehicle type: {vehicle.name} · {ride.seats} seat{ride.seats > 1 ? "s" : ""}
+                Vehicle type: {vehicle.name} · {ride.seats} passenger{ride.seats > 1 ? "s" : ""}
               </span>
               <button aria-label="Change vehicle" onClick={onEdit}>
                 <Pencil className="size-3.5" />
