@@ -9,7 +9,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as fbSignOut,
-  updateProfile,
   type User as FbUser,
 } from "firebase/auth";
 import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
@@ -140,7 +139,6 @@ export async function emailSignIn(email: string, password: string) {
 
 export async function emailSignUp(email: string, password: string) {
   const cred = await createUserWithEmailAndPassword(fb().auth, email.trim(), password);
-  await updateProfile(cred.user, {}).catch(() => undefined);
   void sendEmailVerification(cred.user).catch(() => undefined);
 }
 
