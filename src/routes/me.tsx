@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Bell, Bookmark, ChevronRight, CircleHelp, CreditCard, LogOut, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
-import { resetAll, updateUser, useMove } from "@/lib/move-store";
+import { useQuery } from "@tanstack/react-query";
+import { resetAll, useMove } from "@/lib/move-store";
+import { fetchMyRides } from "@/lib/rides";
+import { saveProfile, signOut } from "@/lib/session";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +16,13 @@ export const Route = createFileRoute("/me")({
 
 function Me() {
   const user = useMove((s) => s.user);
-  const history = useMove((s) => s.history);
+  const role = user.role ?? "passenger";
+  const { data: rides } = useQuery({
+    queryKey: ["my-rides", user.id, role],
+    queryFn: () => fetchMyRides(user.id, role),
+    enabled: !!user.id,
+  });
+  const done = rides?.filter((r) => r.status === "completed").length ?? 0;
   const perms = useMove((s) => s.permissions);
   const navigate = useNavigate();
 
@@ -38,10 +47,10 @@ function Me() {
               <UserRound className="size-10 fill-muted-foreground text-muted-foreground" />
             )}
           </div>
-          <h1 className="mt-3 text-xl font-bold">{user.name || "Guest rider"}</h1>
+          <h1 className="mt-3 text-xl font-bold">{user.name || "Your profile"}</h1>
           <p className="text-xs text-muted-foreground">{user.email || user.phone || "No contact added"}</p>
           <p className="mt-2 rounded-full bg-primary-soft px-3 py-1 text-[11px] font-semibold text-primary">
-            {history.length} trip{history.length === 1 ? "" : "s"} completed
+            {done} trip{done === 1 ? "" : "s"} completed
           </p>
         </div>
 
@@ -49,7 +58,7 @@ function Me() {
           {(["passenger", "driver"] as const).map((r) => (
             <button
               key={r}
-              onClick={() => updateUser({ role: r })}
+              onClick={() => void saveProfile({ role: r, ...(r === "passenger" ? { online: false } : {}) })}
               className={cn(
                 "rounded-full py-2 capitalize transition-colors",
                 user.role === r ? "bg-card font-semibold shadow-float" : "text-muted-foreground",
@@ -74,7 +83,8 @@ function Me() {
         </ul>
 
         <button
-          onClick={() => {
+          onClick={async () => {
+            await signOut();
             resetAll();
             navigate({ to: "/welcome", replace: true });
           }}
