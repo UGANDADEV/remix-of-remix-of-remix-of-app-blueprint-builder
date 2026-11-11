@@ -35,3 +35,5 @@ use the editor.
 - App state (user profile, current ride stage, ride history) lives in the small `useSyncExternalStore` store in `src/lib/move-store.ts`, persisted to localStorage; there is no backend yet, so keep selectors returning existing references to avoid render loops.
 - The ride flow on `/home` is driven by `ride.stage` (idle → choose → finding → arriving → here → started → tracking → arrived), not separate routes, so the map and sheet stay mounted between steps.
 - Fares, vehicles, bus stops and drivers are static data in `src/lib/move-data.ts`; fare math (`tripTotal`, `offerLabel`) is covered by `src/test/fares.test.ts`.
+
+- Full-bleed Mapbox containers get their position from `.move-map.mapboxgl-map` in styles.css, because mapbox-gl.css loads later and forces `position: relative`, collapsing the map to 0px.
