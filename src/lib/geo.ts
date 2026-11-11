@@ -223,15 +223,12 @@ export function nextStep(route: Route, p: LngLat): { step: RouteStep; in: number
   const steps = route.steps ?? [];
   if (!steps.length) return null;
   const me = alongRoute(route.coords, p).along;
-  for (let i = 0; i < steps.length; i++) {
-    const startAt = alongRoute(route.coords, steps[i]!.start).along;
-    // The turn for step i happens where it starts; once passed by 15 m, look at the next one.
-    if (startAt > me + 15 || i === steps.length - 1) {
-      if (i === 0 && startAt <= me + 15) return { step: steps[0]!, in: 0 };
-      return { step: steps[i]!, in: Math.max(0, startAt - me) };
-    }
+  // Each step's turn happens where the step starts; the next one is the first still ahead (by 15 m).
+  for (const step of steps) {
+    const startAt = alongRoute(route.coords, step.start).along;
+    if (startAt > me + 15) return { step, in: startAt - me };
   }
-  return null;
+  return { step: steps[steps.length - 1]!, in: 0 };
 }
 
 /** Decode a Google encoded polyline into [lng, lat] pairs. */
