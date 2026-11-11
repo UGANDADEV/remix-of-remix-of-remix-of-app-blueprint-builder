@@ -1,7 +1,8 @@
 import { ChevronDown, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
-import { NEARBY, PICKUPS, naira, vehicleById, type NearbyDeal, type Place } from "@/lib/move-data";
+import { distanceM, formatDistance, lngLat } from "@/lib/geo";
+import { PICKUPS, PLACES, VEHICLES, naira, type Place } from "@/lib/move-data";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -29,7 +30,8 @@ export function HomeSheet({
   onPickup,
   onSearch,
   onSeeAll,
-  onDeal,
+  onPlace,
+  driversOnline,
   expanded,
   onToggle,
   onTrip,
@@ -38,7 +40,9 @@ export function HomeSheet({
   onPickup: (p: Place) => void;
   onSearch: () => void;
   onSeeAll: () => void;
-  onDeal: (d: NearbyDeal) => void;
+  onPlace: (p: Place) => void;
+  /** Drivers online right now (null while loading). */
+  driversOnline: number | null;
   expanded: boolean;
   onToggle: (v: boolean) => void;
   /** When a trip is in progress, show the bus shortcut back to trip details. */
@@ -115,34 +119,33 @@ export function HomeSheet({
             </button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2.5 pb-1">
-            {NEARBY.map((d, i) => {
-              const v = vehicleById(d.vehicle);
-              const place = d.place;
-              const low = d.left <= 2;
-              return (
-                <button
-                  key={i}
-                  onClick={() => onDeal(d)}
-                  className="rounded-xl bg-muted p-2.5 text-left transition-transform active:scale-[0.97]"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <img src={v.image} alt="" className="h-4 w-8 object-contain" />
-                    <span className="flex-1 text-[11px] font-medium">{d.label}</span>
-                    <span className={cn("text-[10px]", low ? "font-semibold text-warning" : "text-muted-foreground")}>
-                      {d.left} left
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-base font-bold">
-                    {naira(d.price)}
-                    <span className="text-[11px] font-normal text-muted-foreground">/seat</span>
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {place.short} · {d.minutes} min
-                  </p>
-                </button>
-              );
-            })}
+            {PLACES.filter((p) => p.id !== pickup.id)
+              .slice(0, 4)
+              .map((place) => {
+                const m = distanceM(lngLat(pickup), lngLat(place));
+                return (
+                  <button
+                    key={place.id}
+                    onClick={() => onPlace(place)}
+                    className="rounded-xl bg-muted p-2.5 text-left transition-transform active:scale-[0.97]"
+                  >
+                    <p className="truncate text-[13px] font-semibold">{place.short}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{place.area}</p>
+                    <p className="mt-1.5 text-[11px]">
+                      {formatDistance(m)} · from <span className="font-semibold">{naira(VEHICLES[0]!.pricePerSeat)}</span>
+                      <span className="text-muted-foreground">/seat</span>
+                    </p>
+                  </button>
+                );
+              })}
           </div>
+          <p className="pb-1 pt-2 text-center text-[11px] text-muted-foreground">
+            {driversOnline === null
+              ? "Checking for drivers nearby..."
+              : driversOnline === 0
+                ? "No drivers online right now"
+                : `${driversOnline} driver${driversOnline === 1 ? "" : "s"} online now`}
+          </p>
         </div>
       </div>
     </div>
