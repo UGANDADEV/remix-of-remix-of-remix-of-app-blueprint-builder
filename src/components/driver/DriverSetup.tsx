@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppButton } from "@/components/move/AppButton";
-import { VEHICLES, type VehicleId } from "@/lib/move-data";
+import { VEHICLES, isVehicleId, type VehicleId } from "@/lib/move-data";
 import type { DriverInfo } from "@/lib/move-store";
 import { saveProfile } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ const field =
 
 /** Vehicle details a driver must add before they can take requests. */
 export function DriverSetup({ initial, onDone }: { initial: DriverInfo | null; onDone?: () => void }) {
-  const [vehicle, setVehicle] = useState<VehicleId>(initial?.vehicle ?? "bus");
+  const [vehicle, setVehicle] = useState<VehicleId>(initial && isVehicleId(initial.vehicle) ? initial.vehicle : "boda");
   const [car, setCar] = useState(initial?.car ?? "");
   const [color, setColor] = useState(initial?.color ?? "");
   const [plate, setPlate] = useState(initial?.plate ?? "");
@@ -66,7 +66,7 @@ export function DriverSetup({ initial, onDone }: { initial: DriverInfo | null; o
           </button>
         ))}
       </div>
-      <input className={field} aria-label="Make and model" placeholder="Make and model, e.g. Toyota Hiace" value={car} onChange={(e) => setCar(e.target.value)} />
+      <input className={field} aria-label="Make and model" placeholder="Make and model, e.g. Bajaj Boxer" value={car} onChange={(e) => setCar(e.target.value)} />
       <div className="grid grid-cols-2 gap-2">
         <input className={field} aria-label="Colour" placeholder="Colour" value={color} onChange={(e) => setColor(e.target.value)} />
         <input className={field} aria-label="Number plate" placeholder="Number plate" value={plate} onChange={(e) => setPlate(e.target.value)} />

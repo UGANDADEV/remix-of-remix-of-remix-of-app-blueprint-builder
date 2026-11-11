@@ -6,7 +6,7 @@ import { AppButton } from "@/components/move/AppButton";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
 import { useQuery } from "@tanstack/react-query";
-import { naira, tripTotal, vehicleById } from "@/lib/move-data";
+import { ugx, vehicleById } from "@/lib/move-data";
 import { fetchMyRides } from "@/lib/rides";
 import { useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
@@ -71,7 +71,7 @@ function Rides() {
                   {ride.pickup.short} <ArrowRight className="size-3.5" /> {ride.dropoff?.short}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {vehicleById(ride.vehicle).name} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {naira(tripTotal(ride.price, ride.seats))}
+                  {vehicleById(ride.vehicle).name} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {ugx(ride.price)}
                 </p>
               </Link>
             ) : (
@@ -89,7 +89,7 @@ function Rides() {
             <ul className="space-y-3 px-5 py-5">
               {history.map((h) => {
                 const other = role === "driver" ? h.passenger?.name : h.driver?.name;
-                const total = tripTotal(h.price, h.seats);
+                const total = h.price;
                 return (
                   <li key={h.id} className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-float animate-fade-up">
                     <img src={vehicleById(h.vehicle).image} alt="" className="h-8 w-12 object-contain" />
@@ -98,7 +98,7 @@ function Rides() {
                         {h.pickup.short} <ArrowRight className="size-3" /> {h.dropoff.short}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {new Date(h.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
+                        {new Date(h.createdAt).toLocaleDateString("en-UG", { day: "numeric", month: "short" })}
                         {other ? ` · ${other}` : ""}
                         {h.rating > 0 && (
                           <span className="ml-1 inline-flex items-center gap-0.5">
@@ -107,7 +107,7 @@ function Rides() {
                         )}
                       </p>
                     </div>
-                    <span className="text-sm font-bold">{naira(total)}</span>
+                    <span className="text-sm font-bold">{ugx(total)}</span>
                   </li>
                 );
               })}

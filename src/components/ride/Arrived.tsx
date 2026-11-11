@@ -1,7 +1,7 @@
 import { MapPin, Star } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
-import { naira, tripTotal } from "@/lib/move-data";
+import { ugx } from "@/lib/move-data";
 import type { Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number)
   const [rating, setRating] = useState(0);
   const firstName = ride.driver?.name.split(" ")[0] || "your driver";
   const dropoff = ride.dropoff ?? ride.pickup;
-  const total = tripTotal(ride.price, ride.seats);
+  const total = ride.price;
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-background px-5 pt-safe animate-scrim-in">
@@ -24,7 +24,7 @@ export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number)
         </p>
         <div className="mt-6 flex w-full items-center justify-between rounded-xl bg-muted px-4 py-3.5 text-[13px]">
           <span>{ride.payment === "Cash" ? `Pay ${firstName} in cash` : `Paid by ${ride.payment.toLowerCase()}`}</span>
-          <span className="text-base font-bold">{naira(total)}</span>
+          <span className="text-base font-bold">{ugx(total)}</span>
         </div>
         <p className="mt-6 text-sm font-medium">How was your ride?</p>
         <div className="mt-2 flex gap-2">

@@ -1,8 +1,7 @@
 import { ChevronDown, Search } from "lucide-react";
 import { useRef, useState } from "react";
-import busImg from "@/assets/vehicle-bus.png";
 import { distanceM, formatDistance, lngLat } from "@/lib/geo";
-import { PICKUPS, PLACES, VEHICLES, naira, type Place } from "@/lib/move-data";
+import { PICKUPS, PLACES, estimateRoadM, recommendedFare, ugx, vehicleById, type Place } from "@/lib/move-data";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -35,6 +34,7 @@ export function HomeSheet({
   expanded,
   onToggle,
   onTrip,
+  onLocate,
 }: {
   pickup: Place;
   onPickup: (p: Place) => void;
@@ -47,6 +47,8 @@ export function HomeSheet({
   onToggle: (v: boolean) => void;
   /** When a trip is in progress, show the bus shortcut back to trip details. */
   onTrip?: (() => void) | undefined;
+  /** Set the pickup to where the phone is right now. */
+  onLocate?: (() => void) | undefined;
 }) {
   const [menu, setMenu] = useState(false);
   const startY = useRef<number | null>(null);
@@ -73,11 +75,23 @@ export function HomeSheet({
         </button>
         {onTrip && (
           <button onClick={onTrip} aria-label="Open trip details" className="animate-pop-in">
-            <img src={busImg} alt="" className="h-6 w-auto" />
+            <img src={vehicleById("boda").image} alt="" className="h-6 w-auto" />
           </button>
         )}
         {menu && (
           <div className="absolute left-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-xl bg-card py-1 shadow-float animate-pop-in">
+            {onLocate && (
+              <button
+                onClick={() => {
+                  onLocate();
+                  setMenu(false);
+                }}
+                className={cn("block w-full px-4 py-2.5 text-left text-sm hover:bg-muted", pickup.kind === "me" && "font-semibold text-primary")}
+              >
+                My current location
+                <span className="block text-[11px] font-normal text-muted-foreground">Use this phone's GPS</span>
+              </button>
+            )}
             {PICKUPS.map((p) => (
               <button
                 key={p.id}
@@ -132,8 +146,7 @@ export function HomeSheet({
                     <p className="truncate text-[13px] font-semibold">{place.short}</p>
                     <p className="truncate text-[10px] text-muted-foreground">{place.area}</p>
                     <p className="mt-1.5 text-[11px]">
-                      {formatDistance(m)} · from <span className="font-semibold">{naira(VEHICLES[0]!.pricePerSeat)}</span>
-                      <span className="text-muted-foreground">/seat</span>
+                      {formatDistance(m)} · boda from <span className="font-semibold">{ugx(recommendedFare("boda", estimateRoadM(m)))}</span>
                     </p>
                   </button>
                 );

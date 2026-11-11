@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/move/BottomNav";
 import { RideMap, type MapMode } from "@/components/ride/RideMap";
 import { Switch } from "@/components/ui/switch";
 import { distanceM, formatDistance, lngLat, type LngLat, type Place } from "@/lib/geo";
-import { PICKUPS, naira, tripTotal, vehicleById } from "@/lib/move-data";
+import { PICKUPS, ugx, vehicleById } from "@/lib/move-data";
 import { useMove, type DriverSnap } from "@/lib/move-store";
 import {
   driverHeartbeat,
@@ -264,8 +264,8 @@ export function DriverHome() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[15px] font-bold">{naira(tripTotal(r.price, r.seats))}</p>
-                        <p className="text-[10px] text-muted-foreground">{naira(r.price)}/seat</p>
+                        <p className="text-[15px] font-bold">{ugx(r.price)}</p>
+                        <p className="text-[10px] text-muted-foreground">{ugx(r.price)}/seat</p>
                       </div>
                     </div>
                     <p className="mt-2 flex items-center gap-1.5 text-[12px]">
@@ -277,7 +277,7 @@ export function DriverHome() {
                     </p>
                     {offered ? (
                       <div className="mt-3 flex items-center justify-between rounded-lg bg-primary-soft px-3 py-2 text-[12px] text-primary">
-                        <span>Offer of {naira(mine.price)} sent — waiting for passenger</span>
+                        <span>Offer of {ugx(mine.price)} sent — waiting for passenger</span>
                         <button className="font-semibold underline" onClick={() => void withdraw(r)}>
                           Withdraw
                         </button>
@@ -285,10 +285,10 @@ export function DriverHome() {
                     ) : (
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <AppButton size="md" disabled={busy === r.id} onClick={() => void offer(r, r.price)}>
-                          {busy === r.id ? <Loader2 className="size-4 animate-spin" /> : `Accept ${naira(r.price)}`}
+                          {busy === r.id ? <Loader2 className="size-4 animate-spin" /> : `Accept ${ugx(r.price)}`}
                         </AppButton>
                         <AppButton size="md" variant="soft" disabled={busy === r.id} onClick={() => void offer(r, r.price + 100)}>
-                          Offer {naira(r.price + 100)}
+                          Offer {ugx(r.price + 100)}
                         </AppButton>
                       </div>
                     )}
@@ -313,7 +313,7 @@ function JobCard({
   busy: boolean;
   onAdvance: (r: RideDoc, status: RideDoc["status"], extra?: Partial<RideDoc>) => Promise<void>;
 }) {
-  const total = tripTotal(job.price, job.seats);
+  const total = job.price;
   const target = job.status === "started" || job.status === "arrived" ? job.dropoff : job.pickup;
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving`;
   const step =
@@ -323,7 +323,7 @@ function JobCard({
         ? { title: "Waiting for your passenger", action: "Start trip", next: "started" as const }
         : job.status === "started"
           ? { title: `Driving to ${job.dropoff.short}`, action: "End trip", next: "arrived" as const }
-          : { title: `Collect ${naira(total)}${job.payment === "Cash" ? " in cash" : ""}`, action: "Finish", next: "completed" as const };
+          : { title: `Collect ${ugx(total)}${job.payment === "Cash" ? " in cash" : ""}`, action: "Finish", next: "completed" as const };
 
   return (
     <div className="space-y-3">
@@ -332,7 +332,7 @@ function JobCard({
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[15px] font-semibold">{step.title}</h2>
           <p className="text-[11px] text-muted-foreground">
-            {job.seats} seat{job.seats > 1 ? "s" : ""} · {naira(total)} · {job.payment}
+            {job.seats} seat{job.seats > 1 ? "s" : ""} · {ugx(total)} · {job.payment}
           </p>
         </div>
       </div>
