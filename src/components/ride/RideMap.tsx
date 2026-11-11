@@ -15,6 +15,10 @@ const ROUTE_COLOR = "#16884f";
 const APPROACH_COLOR = "#1f2326";
 const STYLES = { streets: "mapbox://styles/mapbox/standard", satellite: "mapbox://styles/mapbox/standard-satellite" } as const;
 type StyleKey = keyof typeof STYLES;
+/** The map switch cycles: street map → 3D buildings → satellite → street map. */
+type MapView = "street" | "3d" | "sat";
+const VIEW_ORDER: MapView[] = ["street", "3d", "sat"];
+const VIEW_LABEL: Record<MapView, string> = { street: "Map", "3d": "3D", sat: "Sat" };
 
 interface Props {
   mode: MapMode;
@@ -245,15 +249,14 @@ export function RideMap({
   const box = useRef<HTMLDivElement>(null);
   const [ctx, setCtx] = useState<{ map: MbMap; lib: MapLib } | null>(null);
   const [failed, setFailed] = useState(false);
-  const [is3d, setIs3d] = useState(false);
-  const [styleKey, setStyleKey] = useState<StyleKey>("streets");
+  const [view, setView] = useState<MapView>("street");
   const [size, setSize] = useState({ w: 390, h: 800 });
   const [trip, setTrip] = useState<Route | null>(null);
   const [approach, setApproach] = useState<Route | null>(null);
   const [traffic, setTraffic] = useState<Traffic[]>([]);
   const lines = useRef<{ route: LngLat[]; approach: LngLat[] }>({ route: [], approach: [] });
-  const threeD = useRef(is3d);
-  threeD.current = is3d;
+  const threeD = useRef(view === "3d");
+  threeD.current = view === "3d";
   const centerRef = useRef(onCenter);
   centerRef.current = onCenter;
   const pickY = (topInset + (size.h - sheetHeight)) / 2;
@@ -414,20 +417,19 @@ export function RideMap({
     frameRef.current();
   }, [ctx, mode, pickup.lng, pickup.lat, trip, approach, mode === "pick" ? 0 : sheetHeight, topInset, pickStart?.[0], pickStart?.[1]]);
 
-  const toggle3d = () => {
-    const next = !is3d;
-    setIs3d(next);
+  const cycleView = () => {
+    const next = VIEW_ORDER[(VIEW_ORDER.indexOf(view) + 1) % VIEW_ORDER.length]!;
+    setView(next);
     if (!ctx) return;
-    apply3d(ctx.map, next);
-    ctx.map.easeTo({ pitch: next ? 62 : 0, bearing: next ? -20 : 0, duration: 1000 });
-  };
-
-  const toggleStyle = () => {
-    const next: StyleKey = styleKey === "streets" ? "satellite" : "streets";
-    setStyleKey(next);
-    ctx?.map.setStyle(STYLES[next], {
-      config: { basemap: { lightPreset: "day", show3dObjects: is3d } },
-    } as unknown as Parameters<MbMap["setStyle"]>[1]);
+    const styleKey: StyleKey = next === "sat" ? "satellite" : "streets";
+    const is3d = next === "3d";
+    if (ctx.map.getStyle()?.name !== undefined) {
+      ctx.map.setStyle(STYLES[styleKey], {
+        config: { basemap: { lightPreset: "day", show3dObjects: is3d } },
+      } as unknown as Parameters<MbMap["setStyle"]>[1]);
+    }
+    apply3d(ctx.map, is3d);
+    ctx.map.easeTo({ pitch: is3d ? 62 : 0, bearing: is3d ? -20 : 0, duration: 1000 });
   };
 
   const pickupAt = lngLat(pickup);
@@ -512,26 +514,15 @@ export function RideMap({
 
       <div className="absolute right-4 z-10 flex flex-col gap-2" style={{ bottom: sheetHeight + 12 }}>
         <button
-          aria-label={is3d ? "Switch to 2D map" : "Switch to 3D map"}
-          aria-pressed={is3d}
-          onClick={toggle3d}
+          aria-label={`Map view: ${VIEW_LABEL[view]}. Tap to switch view`}
+          onClick={cycleView}
           className={cn(
-            "flex size-10 items-center justify-center rounded-full text-[11px] font-bold shadow-float transition-colors",
-            is3d ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
+            "flex h-10 min-w-10 items-center justify-center gap-1 rounded-full px-2.5 text-[11px] font-bold shadow-float transition-colors",
+            view === "street" ? "bg-card text-foreground" : "bg-primary text-primary-foreground",
           )}
         >
-          {is3d ? "2D" : <Box className="size-4" />}
-        </button>
-        <button
-          aria-label={styleKey === "streets" ? "Show satellite view" : "Show street map"}
-          aria-pressed={styleKey === "satellite"}
-          onClick={toggleStyle}
-          className={cn(
-            "flex size-10 items-center justify-center rounded-full shadow-float transition-colors",
-            styleKey === "satellite" ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
-          )}
-        >
-          <Layers className="size-4" />
+          {view === "sat" ? <Layers className="size-4" /> : <Box className="size-4" />}
+          {VIEW_LABEL[view]}
         </button>
         <button
           aria-label="Recenter map"
