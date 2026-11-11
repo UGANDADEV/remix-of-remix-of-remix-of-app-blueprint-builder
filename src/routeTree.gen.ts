@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as GetStartedRouteImport } from './routes/get-started'
+import { Route as NameRouteImport } from './routes/name'
+import { Route as RoleRouteImport } from './routes/role'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 
@@ -30,6 +32,16 @@ const GetStartedRoute = GetStartedRouteImport.update({
   path: '/get-started',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NameRoute = NameRouteImport.update({
+  id: '/name',
+  path: '/name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoleRoute = RoleRouteImport.update({
+  id: '/role',
+  path: '/role',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
@@ -45,6 +57,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/email': typeof EmailRoute
   '/get-started': typeof GetStartedRoute
+  '/name': typeof NameRoute
+  '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
@@ -52,6 +66,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/email': typeof EmailRoute
   '/get-started': typeof GetStartedRoute
+  '/name': typeof NameRoute
+  '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
@@ -60,21 +76,35 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/email': typeof EmailRoute
   '/get-started': typeof GetStartedRoute
+  '/name': typeof NameRoute
+  '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/email' | '/get-started' | '/verify' | '/welcome'
+  fullPaths:
+    '/' | '/email' | '/get-started' | '/name' | '/role' | '/verify' | '/welcome'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/email' | '/get-started' | '/verify' | '/welcome'
-  id: '__root__' | '/' | '/email' | '/get-started' | '/verify' | '/welcome'
+  to:
+    '/' | '/email' | '/get-started' | '/name' | '/role' | '/verify' | '/welcome'
+  id:
+    | '__root__'
+    | '/'
+    | '/email'
+    | '/get-started'
+    | '/name'
+    | '/role'
+    | '/verify'
+    | '/welcome'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EmailRoute: typeof EmailRoute
   GetStartedRoute: typeof GetStartedRoute
+  NameRoute: typeof NameRoute
+  RoleRoute: typeof RoleRoute
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
 }
@@ -102,6 +132,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GetStartedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/name': {
+      id: '/name'
+      path: '/name'
+      fullPath: '/name'
+      preLoaderRoute: typeof NameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/role': {
+      id: '/role'
+      path: '/role'
+      fullPath: '/role'
+      preLoaderRoute: typeof RoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify': {
       id: '/verify'
       path: '/verify'
@@ -123,6 +167,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EmailRoute: EmailRoute,
   GetStartedRoute: GetStartedRoute,
+  NameRoute: NameRoute,
+  RoleRoute: RoleRoute,
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
 }
