@@ -181,7 +181,7 @@ export function DriverHome() {
   };
 
   const mePlace: Place = me
-    ? { id: "me", short: "You", name: "Your location", area: "", lng: me[0], lat: me[1], kind: "address" }
+    ? { id: "me", short: "You", name: "Your location", area: "", lng: me[0], lat: me[1], kind: "me" }
     : PICKUPS[0]!;
   const mapMode: MapMode = job?.status === "started" ? "tracking" : "idle";
 

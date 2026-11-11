@@ -95,3 +95,48 @@ describe("google maps data", () => {
     expect(rankPlaces([g, local], "ksp hotel", GULU).map((p) => p.id)).toEqual(["g-1"]);
   });
 });
+
+import { driverStats, etaMinutes, isFreshRequest, isOnline, stageFor } from "@/lib/ride-logic";
+
+describe("live rides", () => {
+  it("moves the passenger screen with the driver's updates", () => {
+    expect(stageFor("finding", "finding")).toBe("finding");
+    expect(stageFor("accepted", "finding")).toBe("arriving");
+    expect(stageFor("here", "arriving")).toBe("here");
+    expect(stageFor("started", "here")).toBe("started");
+    expect(stageFor("started", "tracking")).toBe("tracking");
+    expect(stageFor("arrived", "tracking")).toBe("arrived");
+  });
+
+  it("keeps the rating screen when the driver finishes first, and ends cancelled rides", () => {
+    expect(stageFor("completed", "arrived")).toBe("arrived");
+    expect(stageFor("completed", "tracking")).toBe("reset");
+    expect(stageFor("cancelled", "arriving")).toBe("reset");
+  });
+
+  it("estimates at least 1 minute, about 3 minutes for a kilometre", () => {
+    expect(etaMinutes(0)).toBe(1);
+    expect(etaMinutes(1000)).toBe(3);
+  });
+
+  it("rates a driver only on rated, completed trips", () => {
+    expect(
+      driverStats([
+        { status: "completed", rating: 5 },
+        { status: "completed", rating: 4 },
+        { status: "completed", rating: 0 },
+        { status: "cancelled", rating: 1 },
+      ]),
+    ).toEqual({ rating: 4.5, rides: 3 });
+    expect(driverStats([])).toEqual({ rating: null, rides: 0 });
+  });
+
+  it("hides requests older than 20 minutes and drivers silent for 3 minutes", () => {
+    const now = 10_000_000;
+    expect(isFreshRequest({ status: "finding", createdAt: now - 19 * 60_000 }, now)).toBe(true);
+    expect(isFreshRequest({ status: "finding", createdAt: now - 21 * 60_000 }, now)).toBe(false);
+    expect(isFreshRequest({ status: "accepted", createdAt: now }, now)).toBe(false);
+    expect(isOnline({ online: true, lastSeen: now - 2 * 60_000 }, now)).toBe(true);
+    expect(isOnline({ online: true, lastSeen: now - 4 * 60_000 }, now)).toBe(false);
+  });
+});
