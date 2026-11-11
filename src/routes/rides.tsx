@@ -5,7 +5,7 @@ import emptyImg from "@/assets/empty-calendar.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
-import { driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { driverById, naira, tripTotal, vehicleById } from "@/lib/move-data";
 import { useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ function Rides() {
   const history = useMove((s) => s.history);
   const ride = useMove((s) => s.ride);
   const navigate = useNavigate();
-  const active = ONGOING.has(ride.stage) && ride.dropoffId;
+  const active = ONGOING.has(ride.stage) && ride.dropoff;
 
   const empty = (title: string, text: string) => (
     <div className="flex flex-1 flex-col items-center px-8 pt-14 text-center animate-fade-up">
@@ -59,7 +59,7 @@ function Rides() {
               <Link to="/home" className="mx-5 mt-5 block rounded-xl bg-card p-4 shadow-float animate-fade-up">
                 <p className="text-xs font-semibold text-primary">In progress</p>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
-                  {placeById(ride.pickupId).short} <ArrowRight className="size-3.5" /> {placeById(ride.dropoffId ?? "").short}
+                  {ride.pickup.short} <ArrowRight className="size-3.5" /> {ride.dropoff?.short}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {vehicleById(ride.vehicle).name} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {naira(tripTotal(ride.price, ride.seats))}
@@ -77,7 +77,7 @@ function Rides() {
                     <img src={vehicleById(h.vehicle).image} alt="" className="h-8 w-12 object-contain" />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
-                        {placeById(h.pickupId).short} <ArrowRight className="size-3" /> {placeById(h.dropoffId).short}
+                        {h.pickup.short} <ArrowRight className="size-3" /> {h.dropoff.short}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {new Date(h.date).toLocaleDateString("en-NG", { day: "numeric", month: "short" })} · {d.name}

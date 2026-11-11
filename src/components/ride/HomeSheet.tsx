@@ -1,7 +1,7 @@
 import { ChevronDown, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
-import { NEARBY, PICKUPS, naira, placeById, vehicleById, type NearbyDeal } from "@/lib/move-data";
+import { NEARBY, PICKUPS, naira, vehicleById, type NearbyDeal, type Place } from "@/lib/move-data";
 import { cn } from "@/lib/utils";
 import { SheetHandle } from "./parts";
 
@@ -25,7 +25,7 @@ export function HomeSheetSkeleton() {
 }
 
 export function HomeSheet({
-  pickupId,
+  pickup,
   onPickup,
   onSearch,
   onSeeAll,
@@ -34,8 +34,8 @@ export function HomeSheet({
   onToggle,
   onTrip,
 }: {
-  pickupId: string;
-  onPickup: (id: string) => void;
+  pickup: Place;
+  onPickup: (p: Place) => void;
   onSearch: () => void;
   onSeeAll: () => void;
   onDeal: (d: NearbyDeal) => void;
@@ -44,7 +44,6 @@ export function HomeSheet({
   /** When a trip is in progress, show the bus shortcut back to trip details. */
   onTrip?: (() => void) | undefined;
 }) {
-  const pickup = placeById(pickupId);
   const [menu, setMenu] = useState(false);
   const startY = useRef<number | null>(null);
 
@@ -79,12 +78,12 @@ export function HomeSheet({
               <button
                 key={p.id}
                 onClick={() => {
-                  onPickup(p.id);
+                  onPickup(p);
                   setMenu(false);
                 }}
                 className={cn(
                   "block w-full px-4 py-2.5 text-left text-sm hover:bg-muted",
-                  p.id === pickupId && "font-semibold text-primary",
+                  p.id === pickup.id && "font-semibold text-primary",
                 )}
               >
                 {p.name}
@@ -118,7 +117,7 @@ export function HomeSheet({
           <div className="mt-3 grid grid-cols-2 gap-2.5 pb-1">
             {NEARBY.map((d, i) => {
               const v = vehicleById(d.vehicle);
-              const place = placeById(d.placeId);
+              const place = d.place;
               const low = d.left <= 2;
               return (
                 <button

@@ -9,12 +9,16 @@ import { HomeSheet, HomeSheetSkeleton } from "@/components/ride/HomeSheet";
 import { RideMap, type MapMode } from "@/components/ride/RideMap";
 import { RoutePill } from "@/components/ride/parts";
 import { SearchRoute } from "@/components/ride/SearchRoute";
-import { placeById, tripTotal, type NearbyDeal, type Place } from "@/lib/move-data";
+import { driverById, tripTotal, type NearbyDeal, type Place } from "@/lib/move-data";
+import mapboxCss from "mapbox-gl/dist/mapbox-gl.css?url";
 import { addHistory, resetRide, updateRide, useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 
 export const Route = createFileRoute("/home")({
-  head: () => pageHead("Book a ride", "See nearby buses, mini buses and taxis and name your own fare."),
+  head: () => ({
+    ...pageHead("Book a ride", "See nearby buses, mini buses and taxis in Gulu and name your own fare."),
+    links: [{ rel: "stylesheet", href: mapboxCss }],
+  }),
   component: Home,
 });
 
@@ -46,25 +50,25 @@ function Home() {
     return () => ro.disconnect();
   }, [ride.stage]);
 
-  const pickup = placeById(ride.pickupId);
-  const dropoff = ride.dropoffId ? placeById(ride.dropoffId) : null;
+  const pickup = ride.pickup;
+  const dropoff = ride.dropoff;
 
   const pick = (p: Place) => {
     setSearch(null);
-    updateRide({ dropoffId: p.id, stage: "choose", vehicle: "bus", price: 300, recommended: 300, seats: 1 });
+    updateRide({ dropoff: p, stage: "choose", vehicle: "bus", price: 300, recommended: 300, seats: 1 });
   };
   const deal = (d: NearbyDeal) =>
-    updateRide({ dropoffId: d.placeId, vehicle: d.vehicle, price: d.price, recommended: d.price, seats: 1, stage: "choose" });
+    updateRide({ dropoff: d.place, vehicle: d.vehicle, price: d.price, recommended: d.price, seats: 1, stage: "choose" });
 
   const accept = useCallback((driverId: string, price: number) => updateRide({ driverId, price, stage: "arriving" }), []);
 
   const finish = (rating: number) => {
-    if (ride.dropoffId && ride.driverId) {
+    if (ride.dropoff && ride.driverId) {
       addHistory({
         id: String(Date.now()),
         date: new Date().toISOString(),
-        pickupId: ride.pickupId,
-        dropoffId: ride.dropoffId,
+        pickup: ride.pickup,
+        dropoff: ride.dropoff,
         driverId: ride.driverId,
         vehicle: ride.vehicle,
         seats: ride.seats,
@@ -91,10 +95,11 @@ function Home() {
     <div ref={rootRef} className="absolute inset-0 overflow-hidden bg-map">
       <RideMap
         mode={mapMode}
-        pickupLabel={pickup.short}
-        dropoffLabel={dropoff?.short}
+        pickup={pickup}
+        dropoff={dropoff}
         sheetHeight={sheetHeight}
-        focusRatio={withPanel ? 0.55 : mapMode === "idle" ? 0.62 : 0.7}
+        topInset={dropoff && (stage === "started" || stage === "tracking") ? TOP + 56 : TOP}
+        arrivingMs={driverById(ride.driverId).eta * 4000 + 4000}
         onPickupClick={() => setSearch({ all: false })}
         onTripEnd={() => updateRide({ stage: "arrived" })}
       />
@@ -110,8 +115,8 @@ function Home() {
               <HomeSheetSkeleton />
             ) : (
               <HomeSheet
-                pickupId={ride.pickupId}
-                onPickup={(id) => updateRide({ pickupId: id })}
+                pickup={ride.pickup}
+                onPickup={(p) => updateRide({ pickup: p })}
                 onSearch={() => (stage === "tracking" ? setTripDetails(true) : setSearch({ all: false }))}
                 onSeeAll={() => setSearch({ all: true })}
                 onDeal={deal}
@@ -138,7 +143,7 @@ function Home() {
       {stage === "arrived" && <Arrived ride={ride} onDone={finish} />}
 
       {search && (
-        <SearchRoute pickupId={ride.pickupId} showAll={search.all} onBack={() => setSearch(null)} onPick={pick} />
+        <SearchRoute pickup={ride.pickup} showAll={search.all} onBack={() => setSearch(null)} onPick={pick} />
       )}
     </div>
   );
