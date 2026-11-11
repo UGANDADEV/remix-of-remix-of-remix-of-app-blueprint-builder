@@ -84,7 +84,7 @@ function Home() {
   const sheetHeight = withPanel
     ? panelH
     : stage === "arriving" || stage === "here" || stage === "started"
-      ? rootH - (TOP + 132)
+      ? rootH - (TOP + 172)
       : rootH - (TOP + 62);
 
   return (
@@ -94,7 +94,7 @@ function Home() {
         pickupLabel={pickup.short}
         dropoffLabel={dropoff?.short}
         sheetHeight={sheetHeight}
-        focusRatio={withPanel ? 0.55 : 0.62}
+        focusRatio={withPanel ? 0.55 : mapMode === "idle" ? 0.62 : 0.7}
         onPickupClick={() => setSearch({ all: false })}
         onTripEnd={() => updateRide({ stage: "arrived" })}
       />

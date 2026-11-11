@@ -30,7 +30,7 @@ function Welcome() {
 
   return (
     <div
-      className="absolute inset-0 touch-pan-y overflow-hidden bg-ink"
+      className="statusbar-light absolute inset-0 touch-pan-y overflow-hidden bg-ink"
       onPointerDown={(e) => (start.current = e.clientX)}
       onPointerMove={(e) => start.current !== null && setDrag(e.clientX - start.current)}
       onPointerUp={() => {

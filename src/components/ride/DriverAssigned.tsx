@@ -79,7 +79,7 @@ export function DriverAssigned({
 
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 top-safe z-20 mt-[132px] flex flex-col rounded-t-3xl bg-card shadow-sheet animate-sheet-up">
+      <div className="absolute inset-x-0 bottom-0 top-safe z-20 mt-[172px] flex flex-col rounded-t-3xl bg-card shadow-sheet animate-sheet-up">
         <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-3 pb-safe">
           <SheetHandle />
           {onClose && (

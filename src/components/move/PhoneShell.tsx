@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 function StatusBar() {
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-50 hidden h-12 items-center justify-between px-7 pt-1 text-[15px] font-semibold text-foreground sm:flex">
+    <div className="status-bar pointer-events-none absolute inset-x-0 top-0 z-50 hidden h-12 items-center justify-between px-7 pt-1 text-[15px] font-semibold text-foreground sm:flex">
       <span>9:41</span>
       <span className="flex items-center gap-1.5">
         <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden>

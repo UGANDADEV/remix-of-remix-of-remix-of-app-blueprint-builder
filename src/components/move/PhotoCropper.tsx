@@ -51,7 +51,7 @@ export function PhotoCropper({
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-cropper text-on-photo animate-scrim-in">
+    <div className="statusbar-light absolute inset-0 z-50 flex flex-col bg-cropper text-on-photo animate-scrim-in">
       <p className="pt-safe mt-4 text-center text-sm text-on-photo-muted">Move and scale</p>
       <div
         className="relative flex-1 touch-none overflow-hidden"

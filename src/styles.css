@@ -150,6 +150,11 @@
   }
 }
 
+/* Light status bar text over dark screens (photos, cropper) */
+.phone-frame:has(.statusbar-light) .status-bar {
+  color: oklch(1 0 0);
+}
+
 @utility pt-safe {
   padding-top: var(--safe-top);
 }
