@@ -15,8 +15,11 @@ import { Route as EmailRouteImport } from './routes/email'
 import { Route as EnableLocationRouteImport } from './routes/enable-location'
 import { Route as EnableNotificationsRouteImport } from './routes/enable-notifications'
 import { Route as GetStartedRouteImport } from './routes/get-started'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as MeRouteImport } from './routes/me'
 import { Route as NameRouteImport } from './routes/name'
 import { Route as ProfilePhotoRouteImport } from './routes/profile-photo'
+import { Route as RidesRouteImport } from './routes/rides'
 import { Route as RoleRouteImport } from './routes/role'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
@@ -51,6 +54,16 @@ const GetStartedRoute = GetStartedRouteImport.update({
   path: '/get-started',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NameRoute = NameRouteImport.update({
   id: '/name',
   path: '/name',
@@ -59,6 +72,11 @@ const NameRoute = NameRouteImport.update({
 const ProfilePhotoRoute = ProfilePhotoRouteImport.update({
   id: '/profile-photo',
   path: '/profile-photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RidesRoute = RidesRouteImport.update({
+  id: '/rides',
+  path: '/rides',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoleRoute = RoleRouteImport.update({
@@ -84,8 +102,11 @@ export interface FileRoutesByFullPath {
   '/enable-location': typeof EnableLocationRoute
   '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
   '/name': typeof NameRoute
   '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
@@ -97,8 +118,11 @@ export interface FileRoutesByTo {
   '/enable-location': typeof EnableLocationRoute
   '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
   '/name': typeof NameRoute
   '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
@@ -111,8 +135,11 @@ export interface FileRoutesById {
   '/enable-location': typeof EnableLocationRoute
   '/enable-notifications': typeof EnableNotificationsRoute
   '/get-started': typeof GetStartedRoute
+  '/home': typeof HomeRoute
+  '/me': typeof MeRoute
   '/name': typeof NameRoute
   '/profile-photo': typeof ProfilePhotoRoute
+  '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
@@ -126,8 +153,11 @@ export interface FileRouteTypes {
     | '/enable-location'
     | '/enable-notifications'
     | '/get-started'
+    | '/home'
+    | '/me'
     | '/name'
     | '/profile-photo'
+    | '/rides'
     | '/role'
     | '/verify'
     | '/welcome'
@@ -139,8 +169,11 @@ export interface FileRouteTypes {
     | '/enable-location'
     | '/enable-notifications'
     | '/get-started'
+    | '/home'
+    | '/me'
     | '/name'
     | '/profile-photo'
+    | '/rides'
     | '/role'
     | '/verify'
     | '/welcome'
@@ -152,8 +185,11 @@ export interface FileRouteTypes {
     | '/enable-location'
     | '/enable-notifications'
     | '/get-started'
+    | '/home'
+    | '/me'
     | '/name'
     | '/profile-photo'
+    | '/rides'
     | '/role'
     | '/verify'
     | '/welcome'
@@ -166,8 +202,11 @@ export interface RootRouteChildren {
   EnableLocationRoute: typeof EnableLocationRoute
   EnableNotificationsRoute: typeof EnableNotificationsRoute
   GetStartedRoute: typeof GetStartedRoute
+  HomeRoute: typeof HomeRoute
+  MeRoute: typeof MeRoute
   NameRoute: typeof NameRoute
   ProfilePhotoRoute: typeof ProfilePhotoRoute
+  RidesRoute: typeof RidesRoute
   RoleRoute: typeof RoleRoute
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
@@ -217,6 +256,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GetStartedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/name': {
       id: '/name'
       path: '/name'
@@ -229,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/profile-photo'
       fullPath: '/profile-photo'
       preLoaderRoute: typeof ProfilePhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rides': {
+      id: '/rides'
+      path: '/rides'
+      fullPath: '/rides'
+      preLoaderRoute: typeof RidesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/role': {
@@ -262,8 +322,11 @@ const rootRouteChildren: RootRouteChildren = {
   EnableLocationRoute: EnableLocationRoute,
   EnableNotificationsRoute: EnableNotificationsRoute,
   GetStartedRoute: GetStartedRoute,
+  HomeRoute: HomeRoute,
+  MeRoute: MeRoute,
   NameRoute: NameRoute,
   ProfilePhotoRoute: ProfilePhotoRoute,
+  RidesRoute: RidesRoute,
   RoleRoute: RoleRoute,
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
