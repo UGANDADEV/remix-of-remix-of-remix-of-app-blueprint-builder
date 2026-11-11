@@ -9,6 +9,7 @@
 
 ## Next
 - [x] Gulu-only search with built-in list of every named Gulu place (typo-friendly) + "Set it on the map"
+- [ ] Every Gulu place found live (not a hand-made list) — needs a data source that has them all (Google has; Mapbox/OpenStreetMap don't)
 - [ ] "Use my current location" and the other search shortcuts (still "Coming soon")
 - [ ] Switch fares from Naira (₦) to Ugandan shillings (UGX); rename drivers/plates to Ugandan ones
 - [ ] Real accounts, SMS codes and saved trips (needs Lovable Cloud backend)
