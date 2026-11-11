@@ -21,7 +21,6 @@ import { Route as NameRouteImport } from './routes/name'
 import { Route as ProfilePhotoRouteImport } from './routes/profile-photo'
 import { Route as RidesRouteImport } from './routes/rides'
 import { Route as RoleRouteImport } from './routes/role'
-import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 
 const IndexRoute = IndexRouteImport.update({
@@ -84,11 +83,6 @@ const RoleRoute = RoleRouteImport.update({
   path: '/role',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VerifyRoute = VerifyRouteImport.update({
-  id: '/verify',
-  path: '/verify',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
@@ -108,7 +102,6 @@ export interface FileRoutesByFullPath {
   '/profile-photo': typeof ProfilePhotoRoute
   '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
-  '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesByTo {
@@ -124,7 +117,6 @@ export interface FileRoutesByTo {
   '/profile-photo': typeof ProfilePhotoRoute
   '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
-  '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRoutesById {
@@ -141,7 +133,6 @@ export interface FileRoutesById {
   '/profile-photo': typeof ProfilePhotoRoute
   '/rides': typeof RidesRoute
   '/role': typeof RoleRoute
-  '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
 }
 export interface FileRouteTypes {
@@ -159,7 +150,6 @@ export interface FileRouteTypes {
     | '/profile-photo'
     | '/rides'
     | '/role'
-    | '/verify'
     | '/welcome'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -175,7 +165,6 @@ export interface FileRouteTypes {
     | '/profile-photo'
     | '/rides'
     | '/role'
-    | '/verify'
     | '/welcome'
   id:
     | '__root__'
@@ -191,7 +180,6 @@ export interface FileRouteTypes {
     | '/profile-photo'
     | '/rides'
     | '/role'
-    | '/verify'
     | '/welcome'
   fileRoutesById: FileRoutesById
 }
@@ -208,7 +196,6 @@ export interface RootRouteChildren {
   ProfilePhotoRoute: typeof ProfilePhotoRoute
   RidesRoute: typeof RidesRoute
   RoleRoute: typeof RoleRoute
-  VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
 }
 
@@ -298,13 +285,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/verify': {
-      id: '/verify'
-      path: '/verify'
-      fullPath: '/verify'
-      preLoaderRoute: typeof VerifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/welcome': {
       id: '/welcome'
       path: '/welcome'
@@ -328,7 +308,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProfilePhotoRoute: ProfilePhotoRoute,
   RidesRoute: RidesRoute,
   RoleRoute: RoleRoute,
-  VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
 }
 export const routeTree = rootRouteImport

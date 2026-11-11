@@ -2,10 +2,13 @@ import { BadgeCheck, ChevronRight, PhoneCall, Share, ShieldCheck, Siren, Triangl
 import { useEffect, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
 import { AppButton } from "@/components/move/AppButton";
+import { Avatar } from "@/components/move/Avatar";
 import { BottomSheet } from "@/components/move/BottomSheet";
-import { driverById, naira, tripTotal, vehicleById } from "@/lib/move-data";
-import { updateRide, type Ride } from "@/lib/move-store";
+import { naira, tripTotal, vehicleById } from "@/lib/move-data";
+import type { DriverSnap, Ride } from "@/lib/move-store";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
+
+const NO_DRIVER: DriverSnap = { id: "", name: "Your driver", photo: null, phone: "", car: "", color: "", plate: "", vehicle: "bus", rating: null, rides: 0 };
 
 export function arrivalTime(minutes = 12) {
   const d = new Date(Date.now() + minutes * 60_000);
@@ -32,35 +35,27 @@ export function DriverAssigned({
   /** Close button when shown as an overlay during a trip. */
   onClose?: () => void;
 }) {
-  const driver = driverById(ride.driverId);
+  const driver = ride.driver ?? NO_DRIVER;
+  const firstName = driver.name.split(" ")[0] ?? driver.name;
   const vehicle = vehicleById(ride.vehicle);
   const pickup = ride.pickup;
   const dropoff = ride.dropoff ?? ride.pickup;
-  const [mins, setMins] = useState(driver.eta);
+  const [mins, setMins] = useState(ride.eta ?? 5);
   const [sheet, setSheet] = useState<null | "safety" | "profile" | "cancel" | "issue" | "shared">(null);
   const [modal, setModal] = useState(ride.stage === "started" && !onClose);
-  const [eta] = useState(() => arrivalTime());
+  const [eta] = useState(() => arrivalTime(ride.trip ? Math.max(1, Math.round(ride.trip.duration / 60)) : 12));
   const started = ride.stage === "started" || ride.stage === "tracking";
 
-  // Arriving → ride is here → ride started.
+  // Count down the driver's own estimate, a minute at a time; the driver moves the ride on from their phone.
   useEffect(() => {
-    if (ride.stage === "arriving") {
-      if (mins <= 1) {
-        const t = setTimeout(() => updateRide({ stage: "here" }), 4000);
-        return () => clearTimeout(t);
-      }
-      const t = setTimeout(() => setMins((m) => m - 1), 4000);
-      return () => clearTimeout(t);
-    }
-    if (ride.stage === "here") {
-      const t = setTimeout(() => {
-        updateRide({ stage: "started" });
-        setModal(true);
-      }, 6000);
-      return () => clearTimeout(t);
-    }
-    return undefined;
+    if (ride.stage !== "arriving" || mins <= 1) return;
+    const t = setTimeout(() => setMins((m) => m - 1), 60_000);
+    return () => clearTimeout(t);
   }, [ride.stage, mins]);
+
+  useEffect(() => {
+    if (ride.stage === "started" && !onClose) setModal(true);
+  }, [ride.stage, onClose]);
 
   const share = async () => {
     const text = `I'm riding with ${driver.name} (${driver.plate}) from ${pickup.name} to ${dropoff.name} on Move Naija.`;
@@ -118,12 +113,12 @@ export function DriverAssigned({
           <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[10px]">
             <button onClick={() => setSheet("profile")} className="flex flex-col items-center gap-1.5">
               <span className="relative">
-                <img src={driver.photo} alt={driver.name} className="size-12 rounded-lg object-cover" />
+                <Avatar src={driver.photo} alt={driver.name} className="size-12 rounded-lg" />
                 <BadgeCheck className="absolute -bottom-1 -right-1 size-4 fill-primary text-card" />
               </span>
               {driver.name}
             </button>
-            <a href={`tel:${driver.phone}`} className="flex flex-col items-center gap-1.5">
+            <a href={driver.phone ? `tel:${driver.phone}` : undefined} className="flex flex-col items-center gap-1.5">
               <span className="flex size-12 items-center justify-center rounded-lg bg-muted">
                 <PhoneCall className="size-5" />
               </span>
@@ -177,7 +172,7 @@ export function DriverAssigned({
             <img src={busImg} alt="" className="mx-auto h-12 w-auto" />
             <h3 className="mt-4 text-lg font-bold">Your ride has started</h3>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              You're on your way to {dropoff.name} with {driver.firstName}.
+              You're on your way to {dropoff.name} with {firstName}.
             </p>
             <AppButton className="mt-5" onClick={onTrack}>
               Track your ride
@@ -198,10 +193,11 @@ export function DriverAssigned({
 
       <BottomSheet open={sheet === "profile"} onClose={() => setSheet(null)} title="Driver's profile">
         <div className="mb-4 flex flex-col items-center text-center">
-          <img src={driver.photo} alt={driver.name} className="size-20 rounded-full object-cover" />
+          <Avatar src={driver.photo} alt={driver.name} className="size-20 rounded-full" />
           <p className="mt-3 font-semibold">{driver.name}</p>
           <p className="text-xs text-muted-foreground">
-            ★ {driver.rating} · {driver.rides} rides
+            {driver.rating ? `★ ${driver.rating} · ` : "New driver · "}
+            {driver.rides} rides
           </p>
           <div className="mt-4 grid w-full grid-cols-2 gap-2 text-left text-xs">
             <div className="rounded-xl bg-muted p-3">
@@ -219,7 +215,7 @@ export function DriverAssigned({
       </BottomSheet>
 
       <BottomSheet open={sheet === "cancel"} onClose={() => setSheet(null)} title="Cancel this ride?">
-        <p className="text-center text-sm text-muted-foreground">{driver.firstName} is already on the way to pick you up.</p>
+        <p className="text-center text-sm text-muted-foreground">{firstName} is already on the way to pick you up.</p>
         <div className="mb-4 mt-5 space-y-2.5">
           <AppButton variant="danger" onClick={onCancel}>
             Yes, cancel ride

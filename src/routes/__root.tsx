@@ -4,6 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -12,6 +14,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { PhoneShell } from "../components/move/PhoneShell";
+import { Toaster } from "../components/ui/sonner";
+import { getState } from "../lib/move-store";
+import { nextPath, startSession, useAuthStatus } from "../lib/session";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -131,10 +136,34 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthGate />
+      <Toaster position="top-center" />
       <PhoneShell>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </PhoneShell>
     </QueryClientProvider>
   );
+}
+
+/** Pages anyone can open; everything else needs a signed-in account. */
+const SIGN_IN_PAGES = new Set(["/welcome", "/get-started", "/email"]);
+
+/** Keeps signed-out visitors on the sign-in pages and moves signed-in people past them. */
+function AuthGate() {
+  const status = useAuthStatus();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    startSession();
+  }, []);
+
+  useEffect(() => {
+    if (pathname === "/") return; // the splash screen routes itself
+    if (status === "signed-out" && !SIGN_IN_PAGES.has(pathname)) navigate({ to: "/welcome", replace: true });
+    if (status === "signed-in" && SIGN_IN_PAGES.has(pathname)) navigate({ to: nextPath(getState().user), replace: true });
+  }, [status, pathname, navigate]);
+
+  return null;
 }

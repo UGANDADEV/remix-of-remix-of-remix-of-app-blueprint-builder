@@ -32,9 +32,12 @@ use the editor.
 ## Project rules
 
 - The app is a phone-first prototype: every screen renders inside `PhoneShell` (root layout), and overlays/sheets are absolutely positioned inside the frame instead of Radix portals, so they stay within the device on desktop.
-- App state (user profile, current ride stage, ride history) lives in the small `useSyncExternalStore` store in `src/lib/move-store.ts`, persisted to localStorage; there is no backend yet, so keep selectors returning existing references to avoid render loops.
+- The backend is the user's own Firebase project (config in `src/lib/firebase-config.ts`, public by design), not Lovable Cloud: Firebase Auth (email/password, Google, Apple popups) and Firestore (`users/{uid}`, `rides/{id}`, `rides/{id}/offers/{driverUid}`); `firestore.rules` in the repo must be pasted into the Firebase console by hand because nothing deploys it.
+- `src/lib/move-store.ts` is a local cache (current ride, profile mirror) persisted to localStorage; the Firestore profile is synced in by `src/lib/session.ts`, so write profile changes through `saveProfile()`, and keep selectors returning existing references to avoid render loops.
+- Ride status transitions live in `src/lib/ride-logic.ts` (pure, tested); the passenger screen follows the ride document via `stageFor()`, and only the assigned driver moves a trip forward from the driver screen (`src/components/driver/`).
+- File uploads go to the user's R2 upload worker: the browser asks `createUploadUrl` (server fn, verifies the Firebase ID token, holds `R2_UPLOAD_TOKEN`) for a one-time PUT link, then uploads directly — the worker token must never reach the browser.
 - The ride flow on `/home` is driven by `ride.stage` (idle → choose → finding → arriving → here → started → tracking → arrived), not separate routes, so the map and sheet stay mounted between steps.
-- Fares, vehicles, bus stops and drivers are static data in `src/lib/move-data.ts`; fare math (`tripTotal`, `offerLabel`) is covered by `src/test/fares.test.ts`.
+- Fares, vehicles and pickup points are static data in `src/lib/move-data.ts` (drivers are real accounts, never seeded); fare math is covered by `src/test/fares.test.ts`.
 
 - The map is Google Maps JS (loaded by `src/lib/google-maps-loader.ts` with the managed browser key); its container stops at the top of the bottom sheet so Google's logo/terms stay visible, and all markers are React portals in `OverlayView`s — Google's terms forbid mixing its places with a Mapbox map, so no Mapbox code remains.
 - Place search, pin naming and driving routes go through `src/lib/maps.functions.ts` (server functions → Lovable connector gateway, Gulu bbox enforced in the validators) and are cached client-side in `src/lib/maps.ts`; the bundled `src/lib/gulu-places.json` OSM snapshot (rebuilt by `scripts/build-gulu-places.py`) answers instantly and offline, and `rankPlaces` drops it when Google has the same place nearby.

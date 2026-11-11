@@ -5,7 +5,9 @@ import emptyImg from "@/assets/empty-calendar.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
-import { driverById, naira, tripTotal, vehicleById } from "@/lib/move-data";
+import { useQuery } from "@tanstack/react-query";
+import { naira, tripTotal, vehicleById } from "@/lib/move-data";
+import { fetchMyRides } from "@/lib/rides";
 import { useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
@@ -19,7 +21,14 @@ const ONGOING = new Set(["finding", "arriving", "here", "started", "tracking"]);
 
 function Rides() {
   const [tab, setTab] = useState<"ongoing" | "past">("past");
-  const history = useMove((s) => s.history);
+  const user = useMove((s) => s.user);
+  const role = user.role ?? "passenger";
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["my-rides", user.id, role],
+    queryFn: () => fetchMyRides(user.id, role),
+    enabled: !!user.id,
+  });
+  const history = (data ?? []).filter((r) => r.status === "completed");
   const ride = useMove((s) => s.ride);
   const navigate = useNavigate();
   const active = ONGOING.has(ride.stage) && ride.dropoff;
@@ -68,10 +77,19 @@ function Rides() {
             ) : (
               empty("No ongoing rides", "Trips you book will show up here.")
             )
+          ) : isLoading ? (
+            <div className="space-y-3 px-5 py-5">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-16 rounded-xl skeleton-shimmer" />
+              ))}
+            </div>
+          ) : isError ? (
+            empty("Couldn't load your trips", "Check your connection and open this page again.")
           ) : history.length ? (
             <ul className="space-y-3 px-5 py-5">
               {history.map((h) => {
-                const d = driverById(h.driverId);
+                const other = role === "driver" ? h.passenger?.name : h.driver?.name;
+                const total = tripTotal(h.price, h.seats);
                 return (
                   <li key={h.id} className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-float animate-fade-up">
                     <img src={vehicleById(h.vehicle).image} alt="" className="h-8 w-12 object-contain" />
@@ -80,7 +98,8 @@ function Rides() {
                         {h.pickup.short} <ArrowRight className="size-3" /> {h.dropoff.short}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {new Date(h.date).toLocaleDateString("en-NG", { day: "numeric", month: "short" })} · {d.name}
+                        {new Date(h.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
+                        {other ? ` · ${other}` : ""}
                         {h.rating > 0 && (
                           <span className="ml-1 inline-flex items-center gap-0.5">
                             · <Star className="size-3 fill-warning text-warning" /> {h.rating}
@@ -88,7 +107,7 @@ function Rides() {
                         )}
                       </p>
                     </div>
-                    <span className="text-sm font-bold">{naira(h.total)}</span>
+                    <span className="text-sm font-bold">{naira(total)}</span>
                   </li>
                 );
               })}

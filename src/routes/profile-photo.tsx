@@ -1,11 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Camera, ImageIcon, Plus, UserRound } from "lucide-react";
+import { Camera, ImageIcon, Loader2, Plus, UserRound } from "lucide-react";
+import { toast } from "sonner";
 import { useRef, useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomSheet } from "@/components/move/BottomSheet";
 import { PhotoCropper } from "@/components/move/PhotoCropper";
 import { StepLayout } from "@/components/move/Screen";
-import { updateUser, useMove } from "@/lib/move-store";
+import { useMove } from "@/lib/move-store";
+import { saveProfile } from "@/lib/session";
+import { uploadImage } from "@/lib/upload";
 import { pageHead } from "@/lib/head";
 
 export const Route = createFileRoute("/profile-photo")({
@@ -19,6 +22,23 @@ function ProfilePhoto() {
   const role = useMove((s) => s.user.role);
   const [sheet, setSheet] = useState(false);
   const [raw, setRaw] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const save = async (dataUrl: string) => {
+    setRaw(null);
+    setUploading(true);
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const url = await uploadImage(blob, "profile.jpg");
+      await saveProfile({ photo: url });
+      toast.success("Photo saved");
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Couldn't save your photo. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -41,7 +61,10 @@ function ProfilePhoto() {
         }
         footer={
           <div className="mb-3 space-y-3">
-            <AppButton onClick={photo ? next : () => setSheet(true)}>Continue</AppButton>
+            <AppButton disabled={uploading} onClick={photo ? next : () => setSheet(true)}>
+              {uploading && <Loader2 className="size-4 animate-spin" />}
+              {uploading ? "Saving photo..." : "Continue"}
+            </AppButton>
             <AppButton variant="soft" onClick={next}>
               Maybe later
             </AppButton>
@@ -55,7 +78,9 @@ function ProfilePhoto() {
             className="relative size-40 rounded-full bg-secondary transition-transform active:scale-95"
             aria-label="Add profile photo"
           >
-            {photo ? (
+            {uploading ? (
+              <Loader2 className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />
+            ) : photo ? (
               <img src={photo} alt="Your profile" className="size-full rounded-full object-cover" />
             ) : (
               <UserRound className="absolute left-1/2 top-1/2 size-14 -translate-x-1/2 -translate-y-1/2 fill-muted-foreground text-muted-foreground" />
@@ -88,10 +113,7 @@ function ProfilePhoto() {
         <PhotoCropper
           src={raw}
           onCancel={() => setRaw(null)}
-          onChoose={(url) => {
-            updateUser({ photo: url });
-            setRaw(null);
-          }}
+          onChoose={(url) => void save(url)}
         />
       )}
     </>

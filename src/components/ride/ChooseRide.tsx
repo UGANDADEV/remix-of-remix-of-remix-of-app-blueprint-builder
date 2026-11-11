@@ -1,5 +1,9 @@
 import { Check, ChevronRight, UserRound } from "lucide-react";
+import { useMemo } from "react";
 import { AppButton } from "@/components/move/AppButton";
+import { distanceM, lngLat } from "@/lib/geo";
+import { etaMinutes } from "@/lib/ride-logic";
+import { useOnlineDrivers } from "@/lib/use-drivers";
 import { VEHICLES, naira, tripTotal, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
@@ -10,6 +14,18 @@ const STEP = 50;
 export function ChooseRide({ ride, onFind }: { ride: Ride; onFind: () => void }) {
   const vehicle = vehicleById(ride.vehicle);
   const total = tripTotal(ride.price, ride.seats);
+  const online = useOnlineDrivers();
+  /** Minutes away for the closest online driver of each vehicle type (with a known position). */
+  const nearest = useMemo(() => {
+    const out: Record<string, { count: number; eta: number | null }> = {};
+    for (const d of online ?? []) {
+      if (!d.vehicle) continue;
+      const cur = out[d.vehicle] ?? { count: 0, eta: null };
+      const eta = d.at ? etaMinutes(distanceM(d.at, lngLat(ride.pickup))) : null;
+      out[d.vehicle] = { count: cur.count + 1, eta: eta === null ? cur.eta : cur.eta === null ? eta : Math.min(cur.eta, eta) };
+    }
+    return out;
+  }, [online, ride.pickup]);
   const min = Math.max(STEP, Math.round((ride.recommended * 0.7) / STEP) * STEP);
 
   return (
@@ -59,7 +75,14 @@ export function ChooseRide({ ride, onFind }: { ride: Ride; onFind: () => void })
                 <span className="flex-1">
                   <span className="block text-[13px] font-semibold">{v.name}</span>
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    {v.eta} min <UserRound className="ml-1 size-2.5" /> {v.seats}
+                    {online === null
+                      ? "Checking drivers..."
+                      : !nearest[v.id]
+                        ? "No drivers online"
+                        : nearest[v.id]!.eta !== null
+                          ? `${nearest[v.id]!.eta} min away`
+                          : `${nearest[v.id]!.count} online`}
+                    <UserRound className="ml-1 size-2.5" /> {v.seats}
                   </span>
                 </span>
                 <span className="text-right">

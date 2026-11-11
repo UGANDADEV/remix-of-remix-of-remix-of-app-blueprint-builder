@@ -1,15 +1,41 @@
 import { useSyncExternalStore } from "react";
 import { PICKUPS, type VehicleId } from "./move-data";
-import type { Place } from "./geo";
+import type { LngLat, Place } from "./geo";
 
 export type Role = "passenger" | "driver";
 
+/** A driver's vehicle details, saved on their profile. */
+export interface DriverInfo {
+  vehicle: VehicleId;
+  car: string;
+  color: string;
+  plate: string;
+  phone: string;
+}
+
 export interface User {
+  id: string;
   name: string;
   email: string;
   phone: string;
   role: Role | null;
   photo: string | null;
+  driver: DriverInfo | null;
+  online: boolean;
+}
+
+/** What a passenger sees about the driver who took their ride. */
+export interface DriverSnap {
+  id: string;
+  name: string;
+  photo: string | null;
+  phone: string;
+  car: string;
+  color: string;
+  plate: string;
+  vehicle: VehicleId;
+  rating: number | null;
+  rides: number;
 }
 
 export type RideStage =
@@ -24,6 +50,8 @@ export type RideStage =
 
 export interface Ride {
   stage: RideStage;
+  /** The live ride request in the database, once sent. */
+  rideId: string | null;
   pickup: Place;
   dropoff: Place | null;
   /** Real road distance (m) and driving time (s) once the route is known. */
@@ -34,33 +62,25 @@ export interface Ride {
   recommended: number;
   payment: "Cash" | "Card" | "Transfer";
   driverId: string | null;
+  driver: DriverSnap | null;
+  /** Minutes the driver said they'd take to reach the pickup. */
+  eta: number | null;
+  /** Driver's last known position. */
+  driverAt: LngLat | null;
   extraBags: boolean;
-}
-
-export interface PastRide {
-  id: string;
-  date: string;
-  pickup: Place;
-  dropoff: Place;
-  driverId: string;
-  vehicle: VehicleId;
-  seats: number;
-  total: number;
-  rating: number;
-  payment: string;
 }
 
 interface State {
   user: User;
   ride: Ride;
-  history: PastRide[];
   permissions: { location: boolean; notifications: boolean };
 }
 
-const KEY = "move-naija:v1";
+const KEY = "move-naija:v2";
 
 export const emptyRide = (pickup: Place = PICKUPS[0]!): Ride => ({
   stage: "idle",
+  rideId: null,
   pickup,
   dropoff: null,
   trip: null,
@@ -70,13 +90,17 @@ export const emptyRide = (pickup: Place = PICKUPS[0]!): Ride => ({
   recommended: 300,
   payment: "Cash",
   driverId: null,
+  driver: null,
+  eta: null,
+  driverAt: null,
   extraBags: false,
 });
 
+export const emptyUser: User = { id: "", name: "", email: "", phone: "", role: null, photo: null, driver: null, online: false };
+
 const initial: State = {
-  user: { name: "", email: "", phone: "", role: null, photo: null },
+  user: emptyUser,
   ride: emptyRide(),
-  history: [],
   permissions: { location: false, notifications: false },
 };
 
@@ -91,9 +115,8 @@ function load() {
     const raw = window.localStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<State>;
-      state = { ...initial, ...saved };
-      // Older saves without real coordinates start a fresh ride.
-      if (!state.ride?.pickup || typeof state.ride.pickup.lng !== "number") state = { ...state, ride: emptyRide() };
+      state = { ...initial, ...saved, user: { ...emptyUser, ...saved.user }, ride: { ...emptyRide(), ...saved.ride } };
+      if (typeof state.ride.pickup?.lng !== "number") state = { ...state, ride: emptyRide() };
     }
   } catch {
     /* ignore corrupt storage */
@@ -120,16 +143,14 @@ export function setState(updater: (s: State) => State) {
   listeners.forEach((l) => l());
 }
 
-export const updateUser = (patch: Partial<User>) =>
+/** Local-only profile update; use saveProfile() in session.ts to also save it to the account. */
+export const setLocalUser = (patch: Partial<User>) =>
   setState((s) => ({ ...s, user: { ...s.user, ...patch } }));
 
 export const updateRide = (patch: Partial<Ride>) =>
   setState((s) => ({ ...s, ride: { ...s.ride, ...patch } }));
 
 export const resetRide = () => setState((s) => ({ ...s, ride: emptyRide(s.ride.pickup) }));
-
-export const addHistory = (r: PastRide) =>
-  setState((s) => ({ ...s, history: [r, ...s.history] }));
 
 export const resetAll = () => setState(() => initial);
 

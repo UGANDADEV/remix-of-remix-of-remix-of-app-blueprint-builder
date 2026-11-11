@@ -1,9 +1,6 @@
 import bus from "@/assets/vehicle-bus.png";
 import minibus from "@/assets/vehicle-minibus.png";
 import taxi from "@/assets/vehicle-taxi.png";
-import emeka from "@/assets/driver-emeka.jpg";
-import kelechi from "@/assets/driver-kelechi.jpg";
-import ikechukwu from "@/assets/driver-ikechukwu.jpg";
 
 export type VehicleId = "bus" | "minibus" | "taxi";
 
@@ -44,86 +41,6 @@ export const PLACES: Place[] = [
   { id: "lacor", short: "Lacor", name: "Lacor", area: "Gulu", lng: 32.24775, lat: 2.76767, kind: "area" },
   ...PICKUPS,
 ];
-
-export interface NearbyDeal {
-  vehicle: VehicleId;
-  label: string;
-  price: number;
-  left: number;
-  place: Place;
-  minutes: number;
-}
-
-const byId = (id: string) => PLACES.find((p) => p.id === id) ?? PLACES[0]!;
-
-export const NEARBY: NearbyDeal[] = [
-  { vehicle: "bus", label: "Bus", price: 300, left: 7, place: byId("gulu-university"), minutes: 4 },
-  { vehicle: "minibus", label: "Mini Bus", price: 400, left: 5, place: byId("lacor-hospital"), minutes: 5 },
-  { vehicle: "taxi", label: "Taxi", price: 750, left: 2, place: byId("pece-stadium"), minutes: 7 },
-  { vehicle: "bus", label: "Bus", price: 450, left: 2, place: byId("layibi"), minutes: 9 },
-];
-
-export interface Driver {
-  id: string;
-  name: string;
-  firstName: string;
-  photo: string;
-  rating: number;
-  rides: number;
-  car: string;
-  color: string;
-  plate: string;
-  eta: number;
-  free: number;
-  phone: string;
-}
-
-export const DRIVERS: Driver[] = [
-  {
-    id: "emeka",
-    name: "Emeka A.",
-    firstName: "Emeka",
-    photo: emeka,
-    rating: 4.9,
-    rides: 900,
-    car: "Toyota Hiace",
-    color: "Yellow",
-    plate: "RBC567SW",
-    eta: 2,
-    free: 4,
-    phone: "+2348030000001",
-  },
-  {
-    id: "kelechi",
-    name: "Kelechi Agu",
-    firstName: "Kelechi",
-    photo: kelechi,
-    rating: 4.9,
-    rides: 300,
-    car: "Nissan Urvan",
-    color: "White",
-    plate: "PHC204KL",
-    eta: 3,
-    free: 7,
-    phone: "+2348030000002",
-  },
-  {
-    id: "ikechukwu",
-    name: "Ikechukwu M.",
-    firstName: "Ikechukwu",
-    photo: ikechukwu,
-    rating: 4.7,
-    rides: 460,
-    car: "Toyota Hiace",
-    color: "Yellow",
-    plate: "ABM881PH",
-    eta: 3,
-    free: 6,
-    phone: "+2348030000003",
-  },
-];
-
-export const driverById = (id: string | null) => DRIVERS.find((d) => d.id === id) ?? DRIVERS[0]!;
 
 export const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 

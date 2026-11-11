@@ -1,13 +1,14 @@
 import { MapPin, Star } from "lucide-react";
 import { useState } from "react";
 import { AppButton } from "@/components/move/AppButton";
-import { driverById, naira, tripTotal } from "@/lib/move-data";
+import { naira, tripTotal } from "@/lib/move-data";
 import type { Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 
-export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number) => void }) {
+export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number) => Promise<void> | void }) {
+  const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState(0);
-  const driver = driverById(ride.driverId);
+  const firstName = ride.driver?.name.split(" ")[0] || "your driver";
   const dropoff = ride.dropoff ?? ride.pickup;
   const total = tripTotal(ride.price, ride.seats);
 
@@ -22,7 +23,7 @@ export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number)
           {dropoff.name}, {dropoff.area}
         </p>
         <div className="mt-6 flex w-full items-center justify-between rounded-xl bg-muted px-4 py-3.5 text-[13px]">
-          <span>{ride.payment === "Cash" ? `Pay ${driver.firstName} in cash` : `Paid by ${ride.payment.toLowerCase()}`}</span>
+          <span>{ride.payment === "Cash" ? `Pay ${firstName} in cash` : `Paid by ${ride.payment.toLowerCase()}`}</span>
           <span className="text-base font-bold">{naira(total)}</span>
         </div>
         <p className="mt-6 text-sm font-medium">How was your ride?</p>
@@ -40,7 +41,18 @@ export function Arrived({ ride, onDone }: { ride: Ride; onDone: (rating: number)
           ))}
         </div>
       </div>
-      <AppButton className="mb-4 pb-0" onClick={() => onDone(rating)}>
+      <AppButton
+        className="mb-4 pb-0"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onDone(rating);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
         Done
       </AppButton>
       <div className="pb-safe" />
