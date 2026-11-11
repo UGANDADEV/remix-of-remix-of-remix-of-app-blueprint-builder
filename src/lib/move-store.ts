@@ -57,7 +57,7 @@ interface State {
   permissions: { location: boolean; notifications: boolean };
 }
 
-const KEY = "move-naija:v2";
+const KEY = "move-naija:v1";
 
 export const emptyRide = (pickup: Place = PICKUPS[0]!): Ride => ({
   stage: "idle",
