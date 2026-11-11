@@ -22,7 +22,7 @@ export const VEHICLES: Vehicle[] = [
   { id: "taxi", name: "Taxi", image: taxi, seats: 4, eta: 4, pricePerSeat: 600 },
 ];
 
-export const vehicleById = (id: VehicleId) => VEHICLES.find((v) => v.id === id) ?? VEHICLES[0];
+export const vehicleById = (id: VehicleId) => VEHICLES.find((v) => v.id === id) ?? VEHICLES[0]!;
 
 export interface Place {
   id: string;
@@ -53,7 +53,7 @@ export const PLACES: Place[] = [
 ];
 
 export const placeById = (id: string) =>
-  [...PLACES, ...PICKUPS].find((p) => p.id === id) ?? PLACES[0];
+  [...PLACES, ...PICKUPS].find((p) => p.id === id) ?? PLACES[0]!;
 
 export interface NearbyDeal {
   vehicle: VehicleId;
@@ -130,6 +130,8 @@ export const DRIVERS: Driver[] = [
     phone: "+2348030000003",
   },
 ];
+
+export const driverById = (id: string | null) => DRIVERS.find((d) => d.id === id) ?? DRIVERS[0]!;
 
 export const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 

@@ -42,7 +42,7 @@ export function HomeSheet({
   expanded: boolean;
   onToggle: (v: boolean) => void;
   /** When a trip is in progress, show the bus shortcut back to trip details. */
-  onTrip?: () => void;
+  onTrip?: (() => void) | undefined;
 }) {
   const pickup = placeById(pickupId);
   const [menu, setMenu] = useState(false);

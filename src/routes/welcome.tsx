@@ -24,6 +24,7 @@ function Welcome() {
   const start = useRef<number | null>(null);
   const navigate = useNavigate();
   const last = i === SLIDES.length - 1;
+  const slide = SLIDES[i]!;
 
   const next = () => (last ? navigate({ to: "/get-started" }) : setI(i + 1));
 
@@ -72,9 +73,9 @@ function Welcome() {
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-5 pb-safe">
         <div key={i} className="text-center animate-fade-up">
-          <h1 className="text-[28px] font-extrabold text-on-photo">{SLIDES[i].title}</h1>
+          <h1 className="text-[28px] font-extrabold text-on-photo">{slide.title}</h1>
           <p className="mt-1 whitespace-pre-line text-[15px] leading-snug text-on-photo-muted">
-            {SLIDES[i].text}
+            {slide.text}
           </p>
         </div>
         <div className="mt-4 flex items-center justify-center gap-1.5">

@@ -4,7 +4,7 @@ import type { Place } from "@/lib/move-data";
 import type { Ride } from "@/lib/move-store";
 import { cn } from "@/lib/utils";
 
-export function RoutePill({ pickup, dropoff, onEdit }: { pickup: Place; dropoff: Place; onEdit?: () => void }) {
+export function RoutePill({ pickup, dropoff, onEdit }: { pickup: Place; dropoff: Place; onEdit?: (() => void) | undefined }) {
   return (
     <div className="absolute inset-x-4 top-safe z-20 mt-2 flex items-center gap-2 rounded-full bg-card px-4 py-2.5 text-[11px] shadow-float animate-fade-up">
       <span className="max-w-[34%] truncate">

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/verify")({
   validateSearch: (s: Record<string, unknown>) => ({
-    via: s.via === "phone" ? ("phone" as const) : ("email" as const),
+    via: s["via"] === "phone" ? ("phone" as const) : ("email" as const),
   }),
   head: () => pageHead("Verify your code", "Enter the 6-digit code we sent you."),
   component: Verify,
@@ -36,6 +36,7 @@ function Verify() {
       const t = setTimeout(() => navigate({ to: "/name" }), 350);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [digits, navigate]);
 
   const setAt = (idx: number, value: string) => {

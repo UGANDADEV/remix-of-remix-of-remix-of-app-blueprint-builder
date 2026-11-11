@@ -5,7 +5,7 @@ import emptyImg from "@/assets/empty-calendar.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomNav } from "@/components/move/BottomNav";
 import { Screen } from "@/components/move/Screen";
-import { DRIVERS, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { DRIVERS, driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
 import { useMove } from "@/lib/move-store";
 import { pageHead } from "@/lib/head";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,7 @@ function Rides() {
               <Link to="/home" className="mx-5 mt-5 block rounded-xl bg-card p-4 shadow-float animate-fade-up">
                 <p className="text-xs font-semibold text-primary">In progress</p>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
-                  {placeById(ride.pickupId).short} <ArrowRight className="size-3.5" /> {placeById(ride.dropoffId!).short}
+                  {placeById(ride.pickupId).short} <ArrowRight className="size-3.5" /> {placeById(ride.dropoffId ?? "").short}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {vehicleById(ride.vehicle).name} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {naira(tripTotal(ride.price, ride.seats))}
@@ -71,7 +71,7 @@ function Rides() {
           ) : history.length ? (
             <ul className="space-y-3 px-5 py-5">
               {history.map((h) => {
-                const d = DRIVERS.find((x) => x.id === h.driverId) ?? DRIVERS[0];
+                const d = driverById(h.driverId);
                 return (
                   <li key={h.id} className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-float animate-fade-up">
                     <img src={vehicleById(h.vehicle).image} alt="" className="h-8 w-12 object-contain" />

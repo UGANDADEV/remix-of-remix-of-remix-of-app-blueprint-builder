@@ -21,7 +21,10 @@ function EnableLocation() {
   const next = () => navigate({ to: "/enable-notifications" });
 
   const allow = () => {
-    if (!("geolocation" in navigator)) return next();
+    if (!("geolocation" in navigator)) {
+      next();
+      return;
+    }
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
       () => {

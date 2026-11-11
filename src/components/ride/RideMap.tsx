@@ -13,7 +13,7 @@ const K = 0.62;
 interface Props {
   mode: MapMode;
   pickupLabel: string;
-  dropoffLabel?: string;
+  dropoffLabel?: string | undefined;
   /** Height of whatever covers the bottom of the map (sheet), in px. */
   sheetHeight: number;
   /** Where the focus point sits within the visible area above the sheet (0–1). */
@@ -22,7 +22,7 @@ interface Props {
   onPickupClick?: () => void;
 }
 
-function Label({ title, value, onClick, chevron = true }: { title: string; value: string; onClick?: () => void; chevron?: boolean }) {
+function Label({ title, value, onClick, chevron = true }: { title: string; value: string; onClick?: (() => void) | undefined; chevron?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -62,7 +62,7 @@ export function RideMap({ mode, pickupLabel, dropoffLabel, sheetHeight, focusRat
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

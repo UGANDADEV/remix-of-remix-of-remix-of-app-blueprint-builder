@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import busImg from "@/assets/vehicle-bus.png";
 import { AppButton } from "@/components/move/AppButton";
 import { BottomSheet } from "@/components/move/BottomSheet";
-import { DRIVERS, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
+import { DRIVERS, driverById, naira, placeById, tripTotal, vehicleById } from "@/lib/move-data";
 import { updateRide, type Ride } from "@/lib/move-store";
 import { PaymentPicker, RouteCard, SheetHandle } from "./parts";
 
@@ -32,7 +32,7 @@ export function DriverAssigned({
   /** Close button when shown as an overlay during a trip. */
   onClose?: () => void;
 }) {
-  const driver = DRIVERS.find((d) => d.id === ride.driverId) ?? DRIVERS[0];
+  const driver = driverById(ride.driverId);
   const vehicle = vehicleById(ride.vehicle);
   const pickup = placeById(ride.pickupId);
   const dropoff = placeById(ride.dropoffId ?? "slaughter");
